@@ -3,12 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KATAPATA開発ノート | KATAPATA</title>
-  <meta name="description" content="洋裁の原型作成をサポートするKATAPATAのサイトです。">
+  <title>KATAPATAをサイト化していく理由 | KATAPATA</title>
+  <meta name="description" content="KATAPATAを1ファイル版とサイト版で整理していく開発メモです。">
   <link rel="stylesheet" href="../assets/css/site.css">
 </head>
 <body>
-
 <header class="site-header">
   <div class="nav-wrap">
     <a class="brand" href="../index.html" aria-label="KATAPATA home">
@@ -29,25 +28,29 @@
 </header>
 <main class="main">
 
-<section class="page-hero container">
-  <p class="eyebrow">Article</p>
-  <h1 class="page-title">KATAPATA開発ノート</h1>
-  <p class="page-lead">KATAPATAの機能追加や調整の記録を残すための記事サンプルです。</p>
-</section>
-<section class="section container tight">
-  <article class="card" style="max-width:860px">
-    <p>ここには、KATAPATAの開発メモ、変更履歴、今後追加したい機能などを載せていきます。</p>
-    <p>ユーザー向けには「どんな改善をしたのか」が伝わり、作り手側には「何を変更したか」の記録として役立ちます。</p>
-    <p><a class="btn" href="index.html">ブログ一覧へ戻る</a></p>
-  </article>
-</section>
+<article class="article-body container">
+  <p class="eyebrow">Development Note</p>
+  <h1 class="page-title">KATAPATAをサイト化していく理由</h1>
+  <p class="page-lead">KATAPATAは、最初は1つのHTMLファイルで動く形として育ってきました。これからは、その強みを残しながら、サイトとして見せる部分を分けていきます。</p>
+
+  <section class="section tight">
+    <h2>1ファイル版は残す</h2>
+    <p>1ファイルで丸ごと動くKATAPATAは、検証用・保管用・将来のアプリ化候補として大事な形です。これは本体の正本として残します。</p>
+  </section>
+
+  <section class="section tight">
+    <h2>サイト版では入口を整える</h2>
+    <p>サイト版では、導入ページ、はじめてガイド、使い方、使用例、料金説明などを外側に分けます。ツール本体は壊さないように、安全に差し込む方針です。</p>
+  </section>
+
+  <p><a class="btn primary" href="../about.html">KATAPATAとは</a></p>
+</article>
 
 </main>
-
 <footer class="footer">
   <div class="footer-inner">
     <div><strong>KATAPATA</strong><br>洋裁の原型作成を、もっとわかりやすく。</div>
-    <div>© KATAPATA. Draft site starter.</div>
+    <div>© KATAPATA.</div>
   </div>
 </footer>
 <script src="../assets/js/site.js"></script>
