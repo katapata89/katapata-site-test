@@ -3,56 +3,391 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>入口 | KATAPATA</title>
-  <meta name="description" content="洋裁の原型作成をサポートするKATAPATAのサイトです。">
-  <link rel="stylesheet" href="./assets/css/site.css">
+  <title>KATAPATA | 洋裁原型・型紙作成サポートツール</title>
+  <meta name="description" content="KATAPATAは、洋裁の原型作成をブラウザ上でサポートするパターンメイキングツールです。">
+  <meta property="og:title" content="KATAPATA | 洋裁原型・型紙作成サポートツール">
+  <meta property="og:description" content="洋裁の原型作成を、もっとわかりやすく。寸法入力から確認、印刷までをブラウザ上で進められます。">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ja_JP">
+  <meta name="theme-color" content="#f8f2e7">
+  <style>
+    :root {
+      --paper: #f8f2e7;
+      --paper-2: #fffaf0;
+      --ink: #171411;
+      --muted: #7a6d5d;
+      --line: #d6a57c;
+      --accent: #8e5f3a;
+      --shadow: rgba(65, 43, 22, .14);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 18% 14%, rgba(255,255,255,.88), transparent 32%),
+        radial-gradient(circle at 78% 82%, rgba(219,181,126,.18), transparent 34%),
+        linear-gradient(180deg, var(--paper) 0%, #f0e6d5 100%);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
+      overflow: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .22;
+      background-image:
+        linear-gradient(90deg, rgba(73,49,25,.045) 1px, transparent 1px),
+        linear-gradient(rgba(73,49,25,.035) 1px, transparent 1px);
+      background-size: 34px 34px;
+      mask-image: radial-gradient(circle at center, black, transparent 82%);
+    }
+    .opening-stage {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      position: relative;
+    }
+    .opening-card {
+      width: min(940px, 100%);
+      min-height: min(620px, calc(100vh - 56px));
+      border: 1px solid rgba(129, 95, 58, .18);
+      border-radius: 36px;
+      background: linear-gradient(180deg, rgba(255,253,248,.83), rgba(255,247,235,.72));
+      box-shadow: 0 28px 80px var(--shadow);
+      display: grid;
+      place-items: center;
+      padding: clamp(26px, 6vw, 72px);
+      position: relative;
+      overflow: hidden;
+    }
+    .opening-card::before,
+    .opening-card::after {
+      content: "";
+      position: absolute;
+      border: 1.5px dashed rgba(173, 105, 72, .32);
+      border-radius: 999px;
+      transform: rotate(-3deg);
+      pointer-events: none;
+    }
+    .opening-card::before {
+      width: 74%; height: 34%;
+      left: -18%; top: 8%;
+    }
+    .opening-card::after {
+      width: 62%; height: 28%;
+      right: -22%; bottom: 9%;
+      transform: rotate(4deg);
+    }
+    .opening-intro {
+      width: min(760px, 100%);
+      display: grid;
+      justify-items: center;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+    .opening-logo {
+      margin: 0;
+      font-size: clamp(50px, 12vw, 116px);
+      line-height: .92;
+      letter-spacing: .09em;
+      font-weight: 950;
+      color: #1d1712;
+      text-shadow: 0 2px 0 rgba(255,255,255,.8);
+      transform: translateY(10px);
+      opacity: 0;
+      animation: logoIn .8s cubic-bezier(.2,.8,.2,1) .12s forwards;
+    }
+    .opening-tagline {
+      margin-top: clamp(16px, 3vw, 24px);
+      font-size: clamp(13px, 2vw, 19px);
+      letter-spacing: .11em;
+      color: rgba(92, 76, 58, .58);
+      font-weight: 750;
+      opacity: 0;
+      transform: translateY(6px);
+      animation: fadeUp .72s ease .56s forwards;
+    }
+    .opening-canvas-wrap {
+      width: min(620px, 90vw);
+      height: 74px;
+      margin-top: clamp(10px, 2vw, 18px);
+      position: relative;
+    }
+    #openingCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .opening-copy {
+      max-width: 650px;
+      margin: 8px auto 0;
+      color: var(--muted);
+      font-size: clamp(13px, 2vw, 16px);
+      line-height: 1.9;
+      font-weight: 700;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: fadeUp .7s ease 1.35s forwards;
+    }
+    .opening-enter {
+      display: inline-grid;
+      place-items: center;
+      margin-top: clamp(24px, 5vw, 44px);
+      min-width: 188px;
+      height: 54px;
+      padding: 0 34px;
+      border-radius: 999px;
+      border: 1px solid rgba(42,31,20,.92);
+      background: #171411;
+      color: #fffaf0;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 950;
+      letter-spacing: .16em;
+      box-shadow: 0 14px 32px rgba(28,18,10,.22);
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .opening-enter:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 38px rgba(28,18,10,.26);
+      background: #2a2018;
+    }
+    .opening-enter:focus-visible {
+      outline: 3px solid rgba(214,165,124,.72);
+      outline-offset: 4px;
+    }
+    .is-ready .opening-enter {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+      transition: opacity .55s ease, transform .55s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .opening-links {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      margin-top: 18px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .5s ease .1s, transform .5s ease .1s;
+    }
+    .is-ready .opening-links {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .opening-links a {
+      color: rgba(72,57,42,.72);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 850;
+      border-bottom: 1px solid rgba(142,95,58,.25);
+      padding-bottom: 2px;
+    }
+    .opening-links a:hover { color: var(--accent); }
+    .tiny-mark {
+      position: absolute;
+      color: rgba(122,92,62,.18);
+      font-weight: 950;
+      letter-spacing: .2em;
+      font-size: 12px;
+      right: 22px;
+      bottom: 18px;
+      z-index: 1;
+    }
+    .corner-note {
+      position: absolute;
+      left: 22px;
+      bottom: 18px;
+      z-index: 1;
+      color: rgba(122,92,62,.45);
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: .08em;
+    }
+    .is-leaving .opening-card {
+      animation: leave .38s ease forwards;
+    }
+    @keyframes logoIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes leave {
+      to { opacity: 0; transform: scale(.985); filter: blur(5px); }
+    }
+    @media (max-width: 640px) {
+      body { overflow: auto; }
+      .opening-stage { padding: 16px; }
+      .opening-card {
+        min-height: calc(100vh - 32px);
+        border-radius: 26px;
+        padding: 28px 18px;
+      }
+      .opening-logo { letter-spacing: .045em; }
+      .opening-canvas-wrap { height: 58px; }
+      .opening-enter { min-width: 160px; height: 50px; }
+      .corner-note, .tiny-mark { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .opening-logo,
+      .opening-tagline,
+      .opening-copy,
+      .opening-enter,
+      .opening-links,
+      .is-leaving .opening-card {
+        animation: none !important;
+        transition: none !important;
+        opacity: 1;
+        transform: none;
+      }
+      .opening-enter { pointer-events: auto; }
+    }
+  </style>
 </head>
 <body>
-
-<header class="site-header">
-  <div class="nav-wrap">
-    <a class="brand" href="./index.html" aria-label="KATAPATA home">
-      <span class="brand-title">KATAPATA</span>
-      <span class="brand-sub">Automatic Sloper Drafting Tool</span>
-    </a>
-    <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false">MENU</button>
-    <nav class="site-nav" data-site-nav>
-      <a href="./about.html">はじめに</a>
-      <a href="./tools/index.html">ツール</a>
-      <a href="./guide/index.html">使い方</a>
-      <a href="./examples/index.html">使用例</a>
-      <a href="./blog/index.html">ブログ</a>
-      <a href="./pricing/index.html">料金</a>
-      <a href="./help/index.html">FAQ</a>
-    </nav>
-  </div>
-</header>
-<main class="main">
-
-<section class="hero">
-  <div class="hero-card">
-    <div class="logo-block">
-      <h1 class="logo-main">KATAPATA</h1>
-      <p class="logo-sub">Automatic Sloper Drafting Tool</p>
-      <svg class="draw-line" viewBox="0 0 540 24" aria-hidden="true"><path d="M8 14 C110 9 190 18 270 13 S430 8 532 14"/></svg>
-      <p class="lead">洋裁の原型作成を、もっとわかりやすく。寸法入力から確認、印刷までをブラウザ上で進めるためのパターンメイキングサイトです。</p>
-      <div class="button-row">
-        <a class="btn primary" href="about.html">ENTER</a>
-        <a class="btn" href="tools/index.html">ツールを選ぶ</a>
-        <a class="btn ghost" href="guide/index.html">はじめてガイドを見る</a>
+  <main class="opening-stage" aria-label="KATAPATA opening">
+    <section class="opening-card">
+      <div class="opening-intro">
+        <h1 class="opening-logo">KATAPATA</h1>
+        <div class="opening-tagline">Automatic Sloper Drafting Tool</div>
+        <div class="opening-canvas-wrap">
+          <canvas id="openingCanvas" aria-label="KATAPATA opening animation"></canvas>
+        </div>
+        <p class="opening-copy">洋裁の原型作成を、もっとわかりやすく。<br>寸法入力から確認、印刷までをブラウザ上で進められます。</p>
+        <a class="opening-enter" href="about.html" id="openingEnter">ENTER</a>
+        <nav class="opening-links" aria-label="ショートカット">
+          <a href="guide/index.html">はじめてガイド</a>
+          <a href="tools/index.html">ツールを選ぶ</a>
+          <a href="pricing/index.html">料金・出力</a>
+        </nav>
       </div>
-    </div>
-  </div>
-</section>
+      <div class="corner-note">Pattern making support</div>
+      <div class="tiny-mark">KATAPATA</div>
+    </section>
+  </main>
+  <noscript>
+    <p style="position:fixed;left:16px;bottom:16px;background:#fff;padding:10px 12px;border-radius:12px;border:1px solid #e4ded4;font-weight:800;">
+      <a href="about.html">ENTER</a>
+    </p>
+  </noscript>
+  <script>
+    (function(){
+      const canvas = document.getElementById('openingCanvas');
+      const enter = document.getElementById('openingEnter');
+      const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let started = false;
 
-</main>
+      function setupCanvas(){
+        const rect = canvas.getBoundingClientRect();
+        const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+        canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+        canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return {ctx, w: rect.width, h: rect.height};
+      }
 
-<footer class="footer">
-  <div class="footer-inner">
-    <div><strong>KATAPATA</strong><br>洋裁の原型作成を、もっとわかりやすく。</div>
-    <div>© KATAPATA. Draft site starter.</div>
-  </div>
-</footer>
-<script src="./assets/js/site.js"></script>
+      function draw(progress){
+        const {ctx, w, h} = setupCanvas();
+        ctx.clearRect(0, 0, w, h);
+        const y = h * .53;
+        const start = w * .08;
+        const end = w * .92;
+        const length = end - start;
+        const visibleEnd = start + length * Math.max(0, Math.min(1, progress));
+
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'rgba(196, 101, 75, .55)';
+        ctx.lineWidth = Math.max(2, Math.min(4, w / 170));
+        ctx.setLineDash([10, 13]);
+        ctx.beginPath();
+        for (let x = start; x <= visibleEnd; x += 8) {
+          const t = (x - start) / length;
+          const yy = y + Math.sin(t * Math.PI * 2.2) * 4 + Math.sin(t * Math.PI * 7) * 1.1;
+          if (x === start) ctx.moveTo(x, yy);
+          else ctx.lineTo(x, yy);
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        if (progress > .05 && progress < .98) {
+          const px = visibleEnd;
+          const t = (px - start) / length;
+          const py = y + Math.sin(t * Math.PI * 2.2) * 4 + Math.sin(t * Math.PI * 7) * 1.1;
+          ctx.save();
+          ctx.translate(px, py);
+          ctx.rotate(-0.16);
+          ctx.fillStyle = '#2f241a';
+          ctx.fillRect(-2, -3, 32, 6);
+          ctx.fillStyle = '#d9b56d';
+          ctx.fillRect(6, -4.5, 26, 9);
+          ctx.fillStyle = '#f4d780';
+          ctx.beginPath();
+          ctx.moveTo(32, -4.5);
+          ctx.lineTo(42, 0);
+          ctx.lineTo(32, 4.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#2f241a';
+          ctx.beginPath();
+          ctx.moveTo(41, 0);
+          ctx.lineTo(46, -2.1);
+          ctx.lineTo(46, 2.1);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function start(){
+        if (started) return;
+        started = true;
+        if (reduceMotion) {
+          draw(1);
+          document.body.classList.add('is-ready');
+          return;
+        }
+        const duration = 1180;
+        const delay = 520;
+        const beginAt = performance.now() + delay;
+        function frame(now){
+          const raw = (now - beginAt) / duration;
+          const p = Math.max(0, Math.min(1, raw));
+          const eased = 1 - Math.pow(1 - p, 3);
+          draw(eased);
+          if (p < 1) requestAnimationFrame(frame);
+          else window.setTimeout(() => document.body.classList.add('is-ready'), 120);
+        }
+        requestAnimationFrame(frame);
+      }
+
+      window.addEventListener('resize', () => {
+        if (document.body.classList.contains('is-ready')) draw(1);
+      });
+      window.addEventListener('load', start);
+      window.setTimeout(start, 100);
+
+      enter.addEventListener('click', function(ev){
+        if (reduceMotion) return;
+        ev.preventDefault();
+        const href = enter.getAttribute('href');
+        document.body.classList.add('is-leaving');
+        window.setTimeout(() => { window.location.href = href; }, 320);
+      });
+    })();
+  </script>
 </body>
 </html>
