@@ -4,7 +4,7 @@
  * - Uses the existing KATAPATA opening logo letters.
  * - Hides pencil/canvas and ENTER button.
  * - Auto-enters the measurement screen after a short logo display.
- * - Clarifies paid output as one "printable PDF set" including normal-size + A4 tiled PDFs.
+ * - Clarifies paid output as one "printable PDF set" and combines normal-size + A4 tiled buttons into one paid-set button.
  */
 (function () {
   'use strict';
@@ -42,6 +42,39 @@
       '}\n' +
       '.site-paid-set-summary strong {\n' +
       '  color: #2f2923;\n' +
+      '}\n' +
+      '.site-paid-combined-print-button {\n' +
+      '  grid-column: 1 / -1 !important;\n' +
+      '  text-align: left !important;\n' +
+      '}\n' +
+      '.site-print-original-hidden {\n' +
+      '  display: none !important;\n' +
+      '}\n' +
+      '.site-print-choice-panel {\n' +
+      '  grid-column: 1 / -1;\n' +
+      '  margin-top: -2px;\n' +
+      '  padding: 8px 9px;\n' +
+      '  border-radius: 14px;\n' +
+      '  background: #fff6e6;\n' +
+      '  border: 1px solid #efd29a;\n' +
+      '}\n' +
+      '.site-print-choice-title {\n' +
+      '  margin-bottom: 7px;\n' +
+      '  color: #4b3a24;\n' +
+      '  font-size: 10px;\n' +
+      '  font-weight: 950;\n' +
+      '}\n' +
+      '.site-print-choice-actions {\n' +
+      '  display: grid;\n' +
+      '  grid-template-columns: 1fr 1fr;\n' +
+      '  gap: 6px;\n' +
+      '}\n' +
+      '.site-print-choice-actions button {\n' +
+      '  min-height: 30px;\n' +
+      '  height: 30px;\n' +
+      '  border-radius: 11px;\n' +
+      '  font-size: 9.5px;\n' +
+      '  padding: 0 8px;\n' +
       '}\n' +
       '@media (prefers-reduced-motion: reduce) {\n' +
       '  body.site-mini-original-boot .openingLetter {\n' +
@@ -210,6 +243,101 @@
     });
   }
 
+
+
+  function normalizeButtonText(button) {
+    return (button && button.textContent ? button.textContent : '').replace(/\s+/g, '');
+  }
+
+  function isSampleOutputButton(button) {
+    var text = normalizeButtonText(button);
+    return text.indexOf('縮小') !== -1 || text.indexOf('サンプル') !== -1;
+  }
+
+  function isNormalPrintButton(button) {
+    if (!button || isSampleOutputButton(button)) return false;
+    var text = normalizeButtonText(button);
+    return text.indexOf('通常') !== -1 || text.indexOf('実寸') !== -1 || text.indexOf('原寸') !== -1;
+  }
+
+  function isTiledPrintButton(button) {
+    if (!button || isSampleOutputButton(button)) return false;
+    var text = normalizeButtonText(button);
+    return text.indexOf('A4') !== -1 || text.indexOf('分割') !== -1 || text.indexOf('貼り合わせ') !== -1;
+  }
+
+  function looksLocked(button) {
+    if (!button) return true;
+    var text = normalizeButtonText(button);
+    return button.classList.contains('locked') || text.indexOf('有料') !== -1 || text.indexOf('🔒') !== -1 || text.indexOf('購入') !== -1;
+  }
+
+  function showCombinedChoice(container, normalButton, tiledButton) {
+    var existing = container.querySelector('.site-print-choice-panel');
+    if (existing) {
+      existing.remove();
+      return;
+    }
+
+    var panel = document.createElement('div');
+    panel.className = 'site-print-choice-panel';
+    panel.innerHTML = '' +
+      '<div class="site-print-choice-title">出力するPDFを選んでください</div>' +
+      '<div class="site-print-choice-actions">' +
+      '  <button type="button" class="site-print-choice-normal">通常サイズPDF</button>' +
+      '  <button type="button" class="site-print-choice-tiled">A4分割印刷PDF</button>' +
+      '</div>';
+
+    var normalChoice = panel.querySelector('.site-print-choice-normal');
+    var tiledChoice = panel.querySelector('.site-print-choice-tiled');
+    if (normalChoice) normalChoice.addEventListener('click', function () { if (normalButton) normalButton.click(); });
+    if (tiledChoice) tiledChoice.addEventListener('click', function () { if (tiledButton) tiledButton.click(); });
+
+    var combined = container.querySelector('.site-paid-combined-print-button');
+    if (combined && combined.nextSibling) {
+      container.insertBefore(panel, combined.nextSibling);
+    } else {
+      container.appendChild(panel);
+    }
+  }
+
+  function combinePaidPrintButtons() {
+    Array.prototype.slice.call(document.querySelectorAll('.printActions')).forEach(function (container) {
+      if (container.querySelector('.site-paid-combined-print-button')) return;
+
+      var buttons = Array.prototype.slice.call(container.querySelectorAll('button'));
+      var normalButton = buttons.find(isNormalPrintButton);
+      var tiledButton = buttons.find(isTiledPrintButton);
+      if (!normalButton || !tiledButton || normalButton === tiledButton) return;
+
+      normalButton.classList.add('site-print-original-hidden');
+      tiledButton.classList.add('site-print-original-hidden');
+      normalButton.style.display = 'none';
+      tiledButton.style.display = 'none';
+      normalButton.setAttribute('aria-hidden', 'true');
+      tiledButton.setAttribute('aria-hidden', 'true');
+      normalButton.tabIndex = -1;
+      tiledButton.tabIndex = -1;
+
+      var combined = document.createElement('button');
+      combined.type = 'button';
+      combined.className = 'printAction paid locked site-paid-combined-print-button';
+      combined.innerHTML = '<strong>通常サイズ・A4分割印刷PDF</strong><small>有料：印刷用PDFセット</small>';
+      combined.addEventListener('click', function () {
+        if (typeof window.purchasePaidExport === 'function' && looksLocked(normalButton) && looksLocked(tiledButton)) {
+          try { window.purchasePaidExport('印刷用PDFセット'); return; } catch (e) {}
+        }
+        if (looksLocked(normalButton) || looksLocked(tiledButton)) {
+          if (normalButton) normalButton.click();
+          return;
+        }
+        showCombinedChoice(container, normalButton, tiledButton);
+      });
+
+      container.insertBefore(combined, normalButton);
+    });
+  }
+
   function patchOutputCopy() {
     var normalButtons = Array.prototype.slice.call(document.querySelectorAll('button[onclick*="startFullSizePdf"]'));
     var tiledButtons = Array.prototype.slice.call(document.querySelectorAll('button[onclick*="startA4TiledPrint"]'));
@@ -238,6 +366,7 @@
     });
 
     patchPaidNotice();
+    combinePaidPrintButtons();
   }
 
   function installOutputCopyObserver() {
