@@ -1,170 +1,147 @@
 /*
- * KATAPATA site-only mini intro
- * Place this script in the site copy of tools/sloper/app/katapata.html.
- * It keeps the standalone KATAPATA full intro untouched.
+ * KATAPATA site-only mini intro: original-logo version
+ * - Uses the existing KATAPATA opening logo letters.
+ * - Hides pencil/canvas and ENTER button.
+ * - Auto-enters the measurement screen after a short logo display.
  */
 (function () {
   'use strict';
 
-  function runMiniIntro() {
-    var overlay = document.getElementById('openingOverlay');
-    if (!overlay) return;
+  var LOGO_LETTER_DELAY = 0.075;
+  var LOGO_DURATION = 0.36;
+  var TAGLINE_DELAY_MS = 620;
+  var AUTO_ENTER_MS = 1480;
 
+  function injectStyle() {
+    if (document.getElementById('katapataSiteMiniIntroOriginalStyle')) return;
+
+    var css = '' +
+      'body.site-mini-original-boot { overflow: hidden; }\n' +
+      'body.site-mini-original-boot .openingCanvasWrap,\n' +
+      'body.site-mini-original-boot #openingCanvas,\n' +
+      'body.site-mini-original-boot .openingEnter,\n' +
+      'body.site-mini-original-boot #openingEnter {\n' +
+      '  display: none !important;\n' +
+      '  opacity: 0 !important;\n' +
+      '  pointer-events: none !important;\n' +
+      '}\n' +
+      'body.site-mini-original-boot .openingIntro {\n' +
+      '  gap: clamp(10px, 2.4vh, 20px) !important;\n' +
+      '}\n' +
+      'body.site-mini-original-boot #openingLogo {\n' +
+      '  margin: 0 !important;\n' +
+      '}\n' +
+      'body.site-mini-original-boot #openingTagline {\n' +
+      '  margin-top: 2px !important;\n' +
+      '}\n' +
+      '@media (prefers-reduced-motion: reduce) {\n' +
+      '  body.site-mini-original-boot .openingLetter {\n' +
+      '    animation-duration: .01ms !important;\n' +
+      '    animation-delay: 0s !important;\n' +
+      '  }\n' +
+      '}\n';
+
+    var style = document.createElement('style');
+    style.id = 'katapataSiteMiniIntroOriginalStyle';
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  function ensureOriginalLetters(logo) {
+    if (!logo) return [];
+    var letters = Array.prototype.slice.call(logo.querySelectorAll('.openingLetter'));
+    if (letters.length) return letters;
+
+    // Fallback only. Usually the original KATAPATA script has already created these spans.
+    if (!logo.textContent.trim()) {
+      'KATAPATA'.split('').forEach(function (char) {
+        var span = document.createElement('span');
+        span.textContent = char;
+        span.className = 'openingLetter';
+        logo.appendChild(span);
+      });
+      letters = Array.prototype.slice.call(logo.querySelectorAll('.openingLetter'));
+    }
+    return letters;
+  }
+
+  function restartLogoAnimation(logo, letters) {
+    if (!logo || !letters.length) return;
+
+    letters.forEach(function (span) {
+      span.style.animation = 'none';
+      span.style.opacity = '0';
+      span.style.transform = 'translateY(20px)';
+    });
+
+    // Force reflow so the shortened original-letter animation starts cleanly.
+    void logo.offsetWidth;
+
+    letters.forEach(function (span, index) {
+      span.style.animation = 'openingFadeIn ' + LOGO_DURATION + 's forwards';
+      span.style.animationDelay = (index * LOGO_LETTER_DELAY) + 's';
+    });
+  }
+
+  function manualLeave(overlay) {
+    if (!overlay) return;
+    overlay.classList.add('is-leaving');
+    document.body.classList.remove('opening-active');
+    if (typeof window.setStage === 'function') {
+      try { window.setStage('measure'); } catch (e) {}
+    }
+    window.setTimeout(function () {
+      overlay.style.display = 'none';
+    }, 650);
+  }
+
+  function run() {
+    var overlay = document.getElementById('openingOverlay');
     var logo = document.getElementById('openingLogo');
     var tagline = document.getElementById('openingTagline');
-    var canvasWrap = document.querySelector('.openingCanvasWrap');
     var canvas = document.getElementById('openingCanvas');
+    var canvasWrap = document.querySelector('.openingCanvasWrap');
     var enter = document.getElementById('openingEnter');
 
-    document.body.classList.add('site-mini-boot');
+    if (!overlay || !logo) return;
+
+    injectStyle();
+    document.body.classList.add('site-mini-original-boot');
     document.body.classList.add('opening-active');
 
-    if (logo && !logo.textContent.trim()) {
-      logo.textContent = 'KATAPATA';
-    }
-    if (tagline && !tagline.textContent.trim()) {
-      tagline.textContent = 'Automatic Sloper Drafting Tool';
-    }
-
-    if (canvasWrap) {
-      canvasWrap.setAttribute('aria-hidden', 'true');
-    }
-    if (canvas) {
-      canvas.setAttribute('aria-hidden', 'true');
-      try {
-        var ctx = canvas.getContext && canvas.getContext('2d');
-        if (ctx) ctx.clearRect(0, 0, canvas.width || 0, canvas.height || 0);
-      } catch (e) {}
-    }
+    if (canvasWrap) canvasWrap.setAttribute('aria-hidden', 'true');
+    if (canvas) canvas.setAttribute('aria-hidden', 'true');
     if (enter) {
       enter.setAttribute('aria-hidden', 'true');
       enter.tabIndex = -1;
     }
 
-    var reduceMotion = false;
-    try {
-      reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    } catch (e) {}
+    var letters = ensureOriginalLetters(logo);
+    restartLogoAnimation(logo, letters);
 
-    var fadeDelay = reduceMotion ? 250 : 1350;
-    var removeDelay = reduceMotion ? 500 : 1950;
-
-    window.setTimeout(function () {
-      document.body.classList.add('site-mini-fade');
-    }, fadeDelay);
+    if (tagline) {
+      tagline.classList.remove('show');
+      window.setTimeout(function () {
+        tagline.classList.add('show');
+      }, TAGLINE_DELAY_MS);
+    }
 
     window.setTimeout(function () {
-      overlay.style.display = 'none';
-      overlay.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('opening-active');
-      document.body.classList.remove('site-mini-boot');
-      document.body.classList.remove('site-mini-fade');
-      document.body.classList.add('site-mini-finished');
-    }, removeDelay);
-  }
-
-  function injectStyle() {
-    if (document.getElementById('katapataSiteMiniIntroStyle')) return;
-
-    var css = '' +
-      'body.site-mini-boot { overflow: hidden; }\n' +
-      'body.site-mini-boot .openingOverlay {\n' +
-      '  position: fixed !important;\n' +
-      '  inset: 0 !important;\n' +
-      '  z-index: 99999 !important;\n' +
-      '  display: grid !important;\n' +
-      '  place-items: center !important;\n' +
-      '  background: radial-gradient(circle at 50% 44%, #fffdf8 0%, #f8f2e8 46%, #eee2d2 100%) !important;\n' +
-      '  opacity: 1;\n' +
-      '  visibility: visible;\n' +
-      '  transition: opacity .58s ease, visibility .58s ease;\n' +
-      '}\n' +
-      'body.site-mini-boot.site-mini-fade .openingOverlay {\n' +
-      '  opacity: 0 !important;\n' +
-      '  visibility: hidden !important;\n' +
-      '  pointer-events: none !important;\n' +
-      '}\n' +
-      'body.site-mini-boot .openingStage,\n' +
-      'body.site-mini-boot .openingIntro {\n' +
-      '  width: min(92vw, 760px) !important;\n' +
-      '  min-height: auto !important;\n' +
-      '  display: grid !important;\n' +
-      '  place-items: center !important;\n' +
-      '  text-align: center !important;\n' +
-      '  padding: 0 !important;\n' +
-      '}\n' +
-      'body.site-mini-boot .openingCanvasWrap,\n' +
-      'body.site-mini-boot #openingCanvas,\n' +
-      'body.site-mini-boot .openingEnter,\n' +
-      'body.site-mini-boot #openingEnter {\n' +
-      '  display: none !important;\n' +
-      '  opacity: 0 !important;\n' +
-      '  pointer-events: none !important;\n' +
-      '}\n' +
-      'body.site-mini-boot #openingLogo {\n' +
-      '  display: block !important;\n' +
-      '  width: auto !important;\n' +
-      '  height: auto !important;\n' +
-      '  margin: 0 0 16px !important;\n' +
-      '  padding: 0 !important;\n' +
-      '  background: none !important;\n' +
-      '  border: 0 !important;\n' +
-      '  box-shadow: none !important;\n' +
-      '  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;\n' +
-      '  font-size: clamp(42px, 10vw, 92px) !important;\n' +
-      '  line-height: 1 !important;\n' +
-      '  font-weight: 950 !important;\n' +
-      '  letter-spacing: .14em !important;\n' +
-      '  color: #3c332b !important;\n' +
-      '  text-shadow: 0 8px 22px rgba(61, 48, 36, .10) !important;\n' +
-      '  opacity: 0;\n' +
-      '  transform: translateY(10px) scale(.985);\n' +
-      '  animation: katapataSiteMiniLogoIn .72s cubic-bezier(.22, .8, .22, 1) .08s forwards;\n' +
-      '}\n' +
-      'body.site-mini-boot #openingTagline {\n' +
-      '  display: block !important;\n' +
-      '  margin: 0 !important;\n' +
-      '  padding: 0 !important;\n' +
-      '  font-size: clamp(12px, 2.2vw, 16px) !important;\n' +
-      '  line-height: 1.6 !important;\n' +
-      '  font-weight: 800 !important;\n' +
-      '  letter-spacing: .14em !important;\n' +
-      '  color: rgba(88, 73, 59, .62) !important;\n' +
-      '  opacity: 0;\n' +
-      '  transform: translateY(8px);\n' +
-      '  animation: katapataSiteMiniTaglineIn .62s ease .28s forwards;\n' +
-      '}\n' +
-      '@keyframes katapataSiteMiniLogoIn {\n' +
-      '  from { opacity: 0; transform: translateY(10px) scale(.985); }\n' +
-      '  to { opacity: 1; transform: translateY(0) scale(1); }\n' +
-      '}\n' +
-      '@keyframes katapataSiteMiniTaglineIn {\n' +
-      '  from { opacity: 0; transform: translateY(8px); }\n' +
-      '  to { opacity: 1; transform: translateY(0); }\n' +
-      '}\n' +
-      '@media (prefers-reduced-motion: reduce) {\n' +
-      '  body.site-mini-boot #openingLogo,\n' +
-      '  body.site-mini-boot #openingTagline {\n' +
-      '    animation-duration: .01ms !important;\n' +
-      '    animation-delay: 0s !important;\n' +
-      '  }\n' +
-      '  body.site-mini-boot .openingOverlay { transition-duration: .01ms !important; }\n' +
-      '}\n';
-
-    var style = document.createElement('style');
-    style.id = 'katapataSiteMiniIntroStyle';
-    style.textContent = css;
-    document.head.appendChild(style);
-  }
-
-  function init() {
-    injectStyle();
-    runMiniIntro();
+      // Use the original ENTER handler when it exists, so the original setStage/cleanup runs.
+      if (enter && typeof enter.click === 'function') {
+        enter.click();
+      } else {
+        manualLeave(overlay);
+      }
+      window.setTimeout(function () {
+        document.body.classList.remove('site-mini-original-boot');
+      }, 700);
+    }, AUTO_ENTER_MS);
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true });
+    document.addEventListener('DOMContentLoaded', run, { once: true });
   } else {
-    init();
+    run();
   }
 })();
