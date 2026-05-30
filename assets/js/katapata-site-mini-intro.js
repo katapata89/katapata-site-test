@@ -1,8 +1,10 @@
 /*
  * KATAPATA site-only mini intro: original-logo version
+ * + site output-copy patch
  * - Uses the existing KATAPATA opening logo letters.
  * - Hides pencil/canvas and ENTER button.
  * - Auto-enters the measurement screen after a short logo display.
+ * - Clarifies paid output as one "printable PDF set" including normal-size + A4 tiled PDFs.
  */
 (function () {
   'use strict';
@@ -33,6 +35,13 @@
       '}\n' +
       'body.site-mini-original-boot #openingTagline {\n' +
       '  margin-top: 2px !important;\n' +
+      '}\n' +
+      '.site-paid-set-summary {\n' +
+      '  margin-top: 8px !important;\n' +
+      '  margin-bottom: 8px !important;\n' +
+      '}\n' +
+      '.site-paid-set-summary strong {\n' +
+      '  color: #2f2923;\n' +
       '}\n' +
       '@media (prefers-reduced-motion: reduce) {\n' +
       '  body.site-mini-original-boot .openingLetter {\n' +
@@ -95,7 +104,7 @@
     }, 650);
   }
 
-  function run() {
+  function runMiniIntro() {
     var overlay = document.getElementById('openingOverlay');
     var logo = document.getElementById('openingLogo');
     var tagline = document.getElementById('openingTagline');
@@ -139,9 +148,128 @@
     }, AUTO_ENTER_MS);
   }
 
+  function setButtonTexts(button, strongText, smallText, onclickText) {
+    if (!button) return;
+    if (onclickText) button.setAttribute('onclick', onclickText);
+
+    var strong = button.querySelector('strong');
+    if (strong) strong.textContent = strongText;
+
+    var small = button.querySelector('small');
+    if (small) small.textContent = smallText;
+  }
+
+  function upsertPaidSetSummary(panel) {
+    if (!panel || panel.querySelector('.site-paid-set-summary')) return;
+
+    var printActions = panel.querySelector('.printActions');
+    if (!printActions) return;
+
+    var summary = document.createElement('div');
+    summary.className = 'outputMiniText site-paid-set-summary';
+    summary.innerHTML = '<div class="outputMiniTextInner"><span><strong>有料：印刷用PDFセット</strong>　購入後、通常サイズPDFとA4分割印刷PDFの両方が使えます。</span></div>';
+    printActions.parentNode.insertBefore(summary, printActions);
+  }
+
+  function patchNotes(panel) {
+    if (!panel) return;
+
+    var notes = Array.prototype.slice.call(panel.querySelectorAll('.outputCompactNote'));
+    notes.forEach(function (note) {
+      var text = note.textContent || '';
+      if (text.indexOf('通常サイズPDF') !== -1 || text.indexOf('A4分割') !== -1 || text.indexOf('有料機能') !== -1) {
+        note.classList.add('paid');
+        note.innerHTML = '<strong>有料：印刷用PDFセット</strong>：購入後、通常サイズPDFとA4分割印刷PDFの両方を利用できます。';
+      } else if (text.indexOf('縮小サンプルPDF') !== -1 && text.indexOf('実寸') !== -1) {
+        note.innerHTML = '<strong>無料：縮小サンプルPDF</strong> は形や配置の確認用です。<strong>実寸ではありません。</strong>';
+      }
+    });
+
+    var saveMessage = panel.querySelector('#saveMessage');
+    if (saveMessage && /縮小サンプル|通常サイズ|A4分割|PDF出力/.test(saveMessage.textContent || '')) {
+      saveMessage.innerHTML = '<strong>PDF出力</strong><small>無料の縮小サンプルと、有料の印刷用PDFセットに対応しています。</small>';
+    }
+  }
+
+  function patchPaidNotice() {
+    Array.prototype.slice.call(document.querySelectorAll('.paidInlineNotice')).forEach(function (notice) {
+      var strong = notice.querySelector('strong');
+      if (strong) strong.textContent = '🔒 印刷用PDFセットは有料機能です';
+
+      var p = notice.querySelector('p');
+      if (p) p.textContent = '購入後、通常サイズPDFとA4分割印刷PDFの両方が使えます。無料版では縮小サンプルPDFを出力できます。';
+
+      var purchaseButton = notice.querySelector('.paidInlineActions button:not(.sub)');
+      if (purchaseButton) {
+        purchaseButton.textContent = '購入ページへ';
+        purchaseButton.setAttribute('onclick', "purchasePaidExport('印刷用PDFセット')");
+      }
+
+      var sampleButton = notice.querySelector('.paidInlineActions button.sub');
+      if (sampleButton) sampleButton.textContent = '縮小サンプルPDF';
+    });
+  }
+
+  function patchOutputCopy() {
+    var normalButtons = Array.prototype.slice.call(document.querySelectorAll('button[onclick*="startFullSizePdf"]'));
+    var tiledButtons = Array.prototype.slice.call(document.querySelectorAll('button[onclick*="startA4TiledPrint"]'));
+
+    normalButtons.forEach(function (button) {
+      setButtonTexts(
+        button,
+        '通常サイズPDF',
+        '有料セットに含まれます / 実寸印刷',
+        "runPaidExport('印刷用PDFセット', startFullSizePdf)"
+      );
+    });
+
+    tiledButtons.forEach(function (button) {
+      setButtonTexts(
+        button,
+        'A4分割印刷PDF',
+        '有料セットに含まれます / A4貼り合わせ',
+        "runPaidExport('印刷用PDFセット', startA4TiledPrint)"
+      );
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll('.outputMainPanel, .lowerOutputPanel')).forEach(function (panel) {
+      upsertPaidSetSummary(panel);
+      patchNotes(panel);
+    });
+
+    patchPaidNotice();
+  }
+
+  function installOutputCopyObserver() {
+    var scheduled = false;
+    function schedulePatch() {
+      if (scheduled) return;
+      scheduled = true;
+      window.setTimeout(function () {
+        scheduled = false;
+        patchOutputCopy();
+      }, 0);
+    }
+
+    schedulePatch();
+    document.addEventListener('click', function () {
+      window.setTimeout(schedulePatch, 0);
+    }, true);
+
+    if (window.MutationObserver) {
+      var observer = new MutationObserver(schedulePatch);
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  function boot() {
+    runMiniIntro();
+    installOutputCopyObserver();
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', run, { once: true });
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
   } else {
-    run();
+    boot();
   }
 })();
