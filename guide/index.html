@@ -7,7 +7,7 @@
   <meta name="description" content="KATAPATAの使い方を、猫のかんたんガイドと手順で紹介します。">
   <link rel="stylesheet" href="../assets/css/site.css">
 </head>
-<body>
+<body class="guide-body">
 <header class="site-header">
   <div class="nav-wrap">
     <a class="brand" href="../index.html" aria-label="KATAPATA home">
@@ -17,51 +17,48 @@
     <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false">MENU</button>
     <nav class="site-nav" data-site-nav>
       <a href="../about.html">はじめに</a>
-      <a href="../tools/index.html">ツール</a>
-      <a href="../guide/index.html">使い方</a>
-      <a href="../examples/index.html">使用例</a>
-      <a href="../blog/index.html">ブログ</a>
-      <a href="../pricing/index.html">料金</a>
-      <a href="../help/index.html">FAQ</a>
+      <a href="../guide/index.html" class="is-active">使い方</a>
+      <a href="../tools/sloper/index.html">原型作成ツール</a>
+      <a href="../help/index.html">よくある質問</a>
     </nav>
   </div>
 </header>
-<main class="main">
-
-<section class="page-hero container">
-  <p class="eyebrow">First Guide</p>
-  <h1 class="page-title">KATAPATA はじめてガイド</h1>
-  <p class="page-lead">まずは全体の流れをざっくり確認するページです。細かいことは後からで大丈夫。最初は「入力して、見る」だけでもOKです。</p>
-</section>
-
-<section class="section container tight">
-  <figure class="guide-visual-card">
-    <img src="../assets/img/katapata-guide-cat.png" alt="KATAPATAの使い方を説明する猫のかんたんガイド。サイズ入力、原型確認、調整、PDF出力の流れ。">
-    <figcaption>猫のかんたんガイド：KATAPATAの基本の流れ</figcaption>
-  </figure>
-</section>
-
-<section class="section container">
-  <h2 class="section-title">基本の流れ</h2>
-  <div class="steps">
-    <div class="step"><h3>サイズを入力する</h3><p>バスト、ウエスト、背丈など、必要な寸法をcm単位で入力します。</p></div>
-    <div class="step"><h3>原型を見る</h3><p>画面に表示された原型を確認します。前・後ろ・袖などを切り替えて見られます。</p></div>
-    <div class="step"><h3>必要なら調整する</h3><p>肩、BP、袖山など、必要な箇所を調整しながら確認します。</p></div>
-    <div class="step"><h3>PDFで出力する</h3><p>無料では縮小サンプルPDFを確認できます。有料出力では、通常サイズPDFとA4分割PDFをセットで使えます。</p></div>
-  </div>
-</section>
-
-<section class="section container">
-  <div class="guide-callout">
-    <div>
-      <p class="eyebrow">Open Tool</p>
-      <h2>準備ができたら、原型作成ツールへ</h2>
-      <p>作業中にこのガイドを見返したい場合は、別タブで開いておくと安心です。</p>
+<main class="guide-page">
+  <section class="guide-hero-modern guide-container" aria-labelledby="guide-title">
+    <div class="guide-hero-copy">
+      <h1 id="guide-title">はじめての方へ<span class="guide-hero-flower" aria-hidden="true">🌼</span></h1>
+      <p>KATAPATAは、むずかしい製図を、ちょっと気軽に。<br>入力したサイズから、あなたの原型を自動で作ってくれるツールです。<br>まずはガイドを読んで、気軽に始めてみましょう。</p>
     </div>
-    <a class="btn primary" href="../tools/sloper/index.html">原型作成ツールへ</a>
-  </div>
-</section>
+    <div class="guide-hero-art" aria-hidden="true">
+      <span class="flower-a">✿</span>
+      <span class="flower-b">❀</span>
+      <span class="flower-c">✽</span>
+    </div>
+  </section>
 
+  <section class="guide-visual-section" aria-label="KATAPATA はじめてガイド">
+    <figure class="guide-visual-shell">
+      <picture class="guide-picture">
+        <source media="(min-width: 861px)" srcset="../assets/img/katapata-guide-cat-wide.png">
+        <img src="../assets/img/katapata-guide-cat.png" alt="KATAPATA はじめてガイド。サイズ入力、原型確認、調整、PDF出力の流れを猫のイラストで説明しています。">
+      </picture>
+      <figcaption class="sr-only">猫のかんたんガイド：KATAPATAの基本の流れ</figcaption>
+    </figure>
+    <div class="guide-actions guide-container">
+      <a class="btn guide-primary" href="../tools/sloper/index.html">さっそく原型を作ってみる　›</a>
+      <a class="btn guide-secondary" href="#guide-steps">詳しい使い方を見る　›</a>
+    </div>
+  </section>
+
+  <section id="guide-steps" class="section guide-detail-section guide-container">
+    <h2 class="section-title">基本の流れ</h2>
+    <div class="steps">
+      <div class="step"><h3>サイズを入力する</h3><p>バスト、ウエスト、背丈など、必要な寸法をcm単位で入力します。迷ったら、まずは普段の採寸値で大丈夫です。</p></div>
+      <div class="step"><h3>原型を見る</h3><p>画面に表示された原型を確認します。前身頃、後身頃、袖などを切り替えながら確認できます。</p></div>
+      <div class="step"><h3>必要なら少し調整する</h3><p>肩先や袖山など、気になるところを少しずつ調整できます。最初はそのまま進めてもOKです。</p></div>
+      <div class="step"><h3>確認してPDF出力</h3><p>形が決まったら、印刷前に必ず寸法を確認してからPDF出力へ進みます。</p></div>
+    </div>
+  </section>
 </main>
 <footer class="footer">
   <div class="footer-inner">
