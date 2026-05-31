@@ -35,6 +35,26 @@
       'body.site-mini-original-boot #openingTagline {\n' +
       '  margin-top: 2px !important;\n' +
       '}\n' +
+      '/* Site-embedded KATAPATA: calmer UI outside the drafting SVG. */\n' +
+      'body { background: #f8f5ef !important; color: #24211f; }\n' +
+      '.wrap { padding: 18px !important; }\n' +
+      '.card { border-color: #e4ded4 !important; box-shadow: 0 14px 38px rgba(0,0,0,.07) !important; }\n' +
+      '.top, .appTop { background: #fffdf8 !important; border-bottom-color: #eee6da !important; }\n' +
+      '.appBrand h1, h1 { font-size: 16px !important; letter-spacing: .10em !important; }\n' +
+      '.appBrand .note, .note { font-size: 9px !important; color: #8e7e68 !important; line-height: 1.45 !important; }\n' +
+      '.brandmark { background: #f0e8dc !important; color: #5d5247 !important; }\n' +
+      '.panel { background: #fffdf8 !important; border-color: #eee6da !important; }\n' +
+      '.panel h2, .panelTitleRow h2 { font-size: 12.5px !important; letter-spacing: .01em !important; color: #2f2a24 !important; }\n' +
+      '.stage, .appStagebar .stage, .parttabs .stage { font-size: 10px !important; color: #746c64; border-color: #ded5ca !important; background: #fbf8f2 !important; }\n' +
+      '.stage.active, .appStagebar .stage.active, .parttabs .stage.active { background: #171717 !important; color: #fffdf8 !important; border-color: #171717 !important; }\n' +
+      '.stageCaption, .metricNote, .toolHint, .partIntro, .adjustMiniIntro, .dartMiniText, .confirmMiniText, .outputMiniText, .printNote, .measureMiniNote { font-size: 10.5px !important; line-height: 1.5 !important; color: #5d5247 !important; background: #fffaf2 !important; border-color: #eee6da !important; }\n' +
+      '.measureEntryTitle { font-size: 13px !important; color: #2f2a24 !important; }\n' +
+      '.measureHeroTitle strong { font-size: 13px !important; }\n' +
+      '.measureHeroTitle span, .measureEntryBadge { font-size: 7.5px !important; }\n' +
+      '.measureInputLabel strong { font-size: 9.5px !important; }\n' +
+      '.measureInputHint { font-size: 7px !important; }\n' +
+      'button, .printAction { letter-spacing: .01em !important; }\n' +
+      '@media (max-width: 560px) { .wrap { padding: 10px !important; } .appBrand h1, h1 { font-size: 15px !important; } .panel h2, .panelTitleRow h2 { font-size: 12px !important; } }\n' +
       '@media (prefers-reduced-motion: reduce) {\n' +
       '  body.site-mini-original-boot .openingLetter {\n' +
       '    animation-duration: .01ms !important;\n' +
