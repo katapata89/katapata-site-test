@@ -1,18 +1,18 @@
-(function () {
+// KATAPATA site navigation
+(() => {
   const toggle = document.querySelector('[data-nav-toggle]');
   const nav = document.querySelector('[data-site-nav]');
-  if (toggle && nav) {
-    toggle.addEventListener('click', () => {
-      const open = nav.classList.toggle('is-open');
-      toggle.setAttribute('aria-expanded', String(open));
-    });
-  }
+  if (!toggle || !nav) return;
 
-  const path = location.pathname.replace(/\/index\.html$/, '/');
-  document.querySelectorAll('[data-site-nav] a').forEach((link) => {
-    const href = new URL(link.getAttribute('href'), location.href).pathname.replace(/\/index\.html$/, '/');
-    if (href === path || (href !== '/' && path.startsWith(href))) {
-      link.classList.add('is-active');
+  toggle.addEventListener('click', () => {
+    const isOpen = nav.classList.toggle('is-open');
+    toggle.setAttribute('aria-expanded', String(isOpen));
+  });
+
+  nav.addEventListener('click', (event) => {
+    if (event.target.closest('a')) {
+      nav.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'false');
     }
   });
 })();
