@@ -185,3 +185,178 @@
     run();
   }
 })();
+
+
+/*
+ * KATAPATA site-only output panel cleanup.
+ * Simplifies the output/print copy without changing drafting or PDF functions.
+ */
+(function () {
+  'use strict';
+
+  function textOf(el) {
+    return (el && (el.innerText || el.textContent) || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function findButton(buttons, patterns) {
+    return buttons.find(function (btn) {
+      var t = textOf(btn);
+      return patterns.some(function (p) { return p.test(t); });
+    }) || null;
+  }
+
+  function makeEl(tag, className, text) {
+    var el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text != null) el.textContent = text;
+    return el;
+  }
+
+  function injectOutputStyle() {
+    if (document.getElementById('katapataOutputCompactStyle')) return;
+    var css = '' +
+      '.katapata-output-compact{display:grid;gap:10px;align-content:start;}' +
+      '.katapata-output-compact .kop-panel{background:#fffdf8;border:1px solid #eee6da;border-radius:16px;padding:12px 13px;display:grid;gap:9px;}' +
+      '.katapata-output-compact .kop-head{display:grid;gap:5px;}' +
+      '.katapata-output-compact .kop-title{font-size:13px;font-weight:950;color:#2f2a24;line-height:1.2;}' +
+      '.katapata-output-compact .kop-target{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}' +
+      '.katapata-output-compact .kop-pill{display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2d8ca;background:#fbf8f2;border-radius:999px;padding:4px 9px;font-size:10px;font-weight:900;color:#5d5247;}' +
+      '.katapata-output-compact .kop-section{display:grid;gap:7px;padding:9px;border:1px solid #eadfce;background:#fffaf2;border-radius:14px;}' +
+      '.katapata-output-compact .kop-section.free{background:#f6faf4;border-color:#d6ead0;}' +
+      '.katapata-output-compact .kop-section.paid{background:#fff7ea;border-color:#ead9b7;}' +
+      '.katapata-output-compact .kop-section-title{font-size:11px;font-weight:950;color:#3b342c;line-height:1.25;}' +
+      '.katapata-output-compact .kop-desc{font-size:9.8px;font-weight:760;line-height:1.45;color:#6b5d4d;margin:0;}' +
+      '.katapata-output-compact .kop-actions{display:grid;gap:6px;}' +
+      '.katapata-output-compact .kop-actions.two{grid-template-columns:1fr 1fr;}' +
+      '.katapata-output-compact button{width:100%;min-height:34px;border-radius:13px;font-size:10.5px;text-align:center;}' +
+      '.katapata-output-compact .kop-back{display:grid;gap:6px;}' +
+      '.katapata-output-compact .kop-empty{font-size:10px;font-weight:800;line-height:1.45;color:#7b6b5a;background:#fbf8f2;border:1px dashed #e4ded4;border-radius:13px;padding:8px 9px;}' +
+      '@media (max-width:560px){.katapata-output-compact .kop-panel{padding:10px 11px;border-radius:15px}.katapata-output-compact .kop-actions.two{grid-template-columns:1fr}.katapata-output-compact button{min-height:32px;font-size:10px}}';
+    var style = document.createElement('style');
+    style.id = 'katapataOutputCompactStyle';
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  function parseSummary(raw) {
+    var lines = (raw || '').split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var target = '';
+    var kind = '';
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i] === '出力対象' && lines[i + 1]) target = lines[i + 1];
+      if (lines[i] === '区分' && lines[i + 1]) kind = lines[i + 1];
+    }
+    if (!target) {
+      var m = (raw || '').match(/出力対象\s*([^\n]+)/);
+      if (m) target = m[1].trim();
+    }
+    if (!kind) {
+      var k = (raw || '').match(/区分\s*([^\n]+)/);
+      if (k) kind = k[1].trim();
+    }
+    return { target: target || '選択中の製図', kind: kind || '' };
+  }
+
+  function isInsideCompact(btn) {
+    return !!(btn && btn.closest && btn.closest('.katapata-output-compact'));
+  }
+
+  function simplifyOutputPanel() {
+    var main = document.querySelector('.main[data-stage="output"]');
+    if (!main) return;
+    var side = main.querySelector('.side');
+    if (!side) return;
+    if (side.querySelector('.katapata-output-compact')) return;
+
+    var raw = side.innerText || '';
+    if (!/縮小サンプル|通常サイズ|A4|印刷|PDF|購入/.test(raw)) return;
+
+    injectOutputStyle();
+
+    var buttons = Array.prototype.slice.call(side.querySelectorAll('button')).filter(function (btn) {
+      return !isInsideCompact(btn);
+    });
+
+    var sampleBtn = findButton(buttons, [/縮小サンプル/, /サンプルPDF/]);
+    var purchaseBtn = findButton(buttons, [/購入ページ/, /購入/]);
+    var comboBtn = findButton(buttons, [/通常サイズ.*A4/, /A4.*通常サイズ/, /印刷用PDFセット/]);
+    var normalBtn = findButton(buttons, [/^\s*通常サイズPDF\s*$/, /通常サイズ/]);
+    var a4Btn = findButton(buttons, [/^\s*A4分割印刷PDF\s*$/, /A4分割/]);
+    var backBtn = findButton(buttons, [/戻る.*確定/, /確定へ戻る/, /確定/]);
+
+    var summary = parseSummary(side.innerText || '');
+
+    var compact = makeEl('div', 'katapata-output-compact');
+    var panel = makeEl('div', 'kop-panel');
+    compact.appendChild(panel);
+
+    var head = makeEl('div', 'kop-head');
+    head.appendChild(makeEl('div', 'kop-title', 'PDF出力'));
+    var target = makeEl('div', 'kop-target');
+    target.appendChild(makeEl('span', 'kop-pill', summary.target));
+    if (summary.kind) target.appendChild(makeEl('span', 'kop-pill', summary.kind));
+    head.appendChild(target);
+    panel.appendChild(head);
+
+    var free = makeEl('section', 'kop-section free');
+    free.appendChild(makeEl('div', 'kop-section-title', '無料：縮小サンプルPDF'));
+    free.appendChild(makeEl('p', 'kop-desc', '確認用です。実寸ではありません。'));
+    var freeActions = makeEl('div', 'kop-actions');
+    if (sampleBtn) freeActions.appendChild(sampleBtn);
+    else freeActions.appendChild(makeEl('div', 'kop-empty', '縮小サンプルPDFのボタンが見つかりませんでした。'));
+    free.appendChild(freeActions);
+    panel.appendChild(free);
+
+    var paid = makeEl('section', 'kop-section paid');
+    paid.appendChild(makeEl('div', 'kop-section-title', '有料：印刷用PDF'));
+    paid.appendChild(makeEl('p', 'kop-desc', '購入後は、通常サイズPDFとA4分割印刷PDFを利用できます。'));
+    var paidActions = makeEl('div', 'kop-actions');
+
+    if (purchaseBtn) {
+      paidActions.appendChild(purchaseBtn);
+    } else if (comboBtn) {
+      paidActions.appendChild(comboBtn);
+    } else {
+      if (normalBtn && a4Btn) paidActions.classList.add('two');
+      if (normalBtn) paidActions.appendChild(normalBtn);
+      if (a4Btn && a4Btn !== normalBtn) paidActions.appendChild(a4Btn);
+      if (!normalBtn && !a4Btn) paidActions.appendChild(makeEl('div', 'kop-empty', '印刷用PDFのボタンは購入後に表示されます。'));
+    }
+    paid.appendChild(paidActions);
+    panel.appendChild(paid);
+
+    if (backBtn) {
+      var back = makeEl('div', 'kop-back');
+      back.appendChild(backBtn);
+      panel.appendChild(back);
+    }
+
+    side.setAttribute('data-katapata-output-original-text', raw.slice(0, 1200));
+    side.innerHTML = '';
+    side.appendChild(compact);
+  }
+
+  function scheduleSimplify() {
+    window.setTimeout(simplifyOutputPanel, 0);
+    window.setTimeout(simplifyOutputPanel, 80);
+    window.setTimeout(simplifyOutputPanel, 240);
+    window.setTimeout(simplifyOutputPanel, 700);
+  }
+
+  function startOutputObserver() {
+    scheduleSimplify();
+    document.addEventListener('click', function () {
+      scheduleSimplify();
+    }, true);
+    var obs = new MutationObserver(function () {
+      scheduleSimplify();
+    });
+    obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-stage', 'class'] });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startOutputObserver, { once: true });
+  } else {
+    startOutputObserver();
+  }
+})();
