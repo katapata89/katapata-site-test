@@ -1,6 +1,7 @@
 /*
- * KATAPATA site-only mini intro: original-logo version
+ * KATAPATA site-only mini intro: original-logo version, no pre-flash.
  * - Uses the existing KATAPATA opening logo letters.
+ * - Blocks the original full opening animation visually before this file runs.
  * - Hides pencil/canvas and ENTER button.
  * - Auto-enters the measurement screen after a short logo display.
  */
@@ -47,6 +48,11 @@
     document.head.appendChild(style);
   }
 
+  function removeEarlyBlocker() {
+    var blocker = document.getElementById('katapataSiteMiniIntroBootBlocker');
+    if (blocker && blocker.parentNode) blocker.parentNode.removeChild(blocker);
+  }
+
   function ensureOriginalLetters(logo) {
     if (!logo) return [];
     var letters = Array.prototype.slice.call(logo.querySelectorAll('.openingLetter'));
@@ -65,14 +71,16 @@
     return letters;
   }
 
-  function restartLogoAnimation(logo, letters) {
-    if (!logo || !letters.length) return;
-
+  function primeLogo(letters) {
     letters.forEach(function (span) {
       span.style.animation = 'none';
       span.style.opacity = '0';
       span.style.transform = 'translateY(20px)';
     });
+  }
+
+  function restartLogoAnimation(logo, letters) {
+    if (!logo || !letters.length) return;
 
     // Force reflow so the shortened original-letter animation starts cleanly.
     void logo.offsetWidth;
@@ -105,6 +113,9 @@
 
     if (!overlay || !logo) return;
 
+    var letters = ensureOriginalLetters(logo);
+    primeLogo(letters);
+
     injectStyle();
     document.body.classList.add('site-mini-original-boot');
     document.body.classList.add('opening-active');
@@ -116,12 +127,21 @@
       enter.tabIndex = -1;
     }
 
-    var letters = ensureOriginalLetters(logo);
+    if (tagline) {
+      tagline.classList.remove('show');
+      tagline.style.opacity = '0';
+      tagline.style.transform = 'translateY(6px)';
+    }
+
+    // Remove the head-level blocker only after the logo has been reset to invisible.
+    removeEarlyBlocker();
+
     restartLogoAnimation(logo, letters);
 
     if (tagline) {
-      tagline.classList.remove('show');
       window.setTimeout(function () {
+        tagline.style.opacity = '';
+        tagline.style.transform = '';
         tagline.classList.add('show');
       }, TAGLINE_DELAY_MS);
     }
