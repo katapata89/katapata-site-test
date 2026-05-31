@@ -658,3 +658,36 @@ body {
   .page-hero { padding-top: 42px; }
   .card { padding: 18px; }
 }
+
+/* About page cleanup */
+.page-lead.intro-lead {
+  max-width: 980px;
+  line-height: 1.95;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.page-lead.intro-lead .keep {
+  display: inline-block;
+  white-space: nowrap;
+  margin-right: .18em;
+}
+.page-lead.intro-lead .lead-break {
+  display: block;
+}
+.split-panel.single-panel {
+  grid-template-columns: minmax(0, 1fr);
+}
+.split-panel.single-panel > div {
+  max-width: 820px;
+}
+@media (max-width: 720px) {
+  .page-lead.intro-lead {
+    line-height: 1.85;
+  }
+  .page-lead.intro-lead .lead-break {
+    display: none;
+  }
+  .page-lead.intro-lead .keep {
+    white-space: normal;
+  }
+}
