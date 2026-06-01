@@ -1613,3 +1613,247 @@ body {
     font-size: 2.25rem;
   }
 }
+
+
+/* ------------------------------------------------------------
+   Mobile spacing + blog card layout update
+   ------------------------------------------------------------ */
+.blog-body .article-list.blog-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+}
+.blog-body .article-list.blog-card-grid .article-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 218px;
+  padding: 17px 18px;
+}
+.blog-body .article-list.blog-card-grid .article-date {
+  width: fit-content;
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid rgba(211, 165, 31, .22);
+  border-radius: 999px;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+.blog-body .article-list.blog-card-grid .article-item div {
+  display: grid;
+  gap: 7px;
+}
+.blog-body .article-list.blog-card-grid .article-item h2 {
+  margin: 0;
+  font-size: 1.04rem;
+  line-height: 1.38;
+}
+.blog-body .article-list.blog-card-grid .article-item p {
+  margin: 0;
+  font-size: .9rem;
+  line-height: 1.62;
+}
+
+@media (max-width: 920px) {
+  .blog-body .article-list.blog-card-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .blog-body .article-list.blog-card-grid .article-item {
+    min-height: 0;
+    padding: 15px;
+    gap: 9px;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    line-height: 1.62;
+  }
+  .container,
+  .nav-wrap,
+  .footer-inner {
+    width: calc(100% - 18px);
+  }
+  .nav-wrap {
+    min-height: 52px;
+    gap: 10px;
+  }
+  .brand-title {
+    font-size: .96rem;
+  }
+  .nav-toggle {
+    padding: 6px 10px;
+    font-size: .78rem;
+  }
+  .site-nav {
+    left: 9px;
+    right: 9px;
+    top: 52px;
+    border-radius: 16px;
+    padding: 8px;
+  }
+  .site-nav a {
+    padding: 8px 10px;
+  }
+  .page-hero {
+    padding: 20px 0 9px;
+  }
+  .eyebrow {
+    margin-bottom: 8px;
+    padding: 3px 8px;
+    font-size: .58rem;
+  }
+  .page-title {
+    font-size: clamp(1.32rem, 6.8vw, 1.92rem);
+    line-height: 1.12;
+  }
+  .page-title::after {
+    width: 36px;
+    height: 2px;
+    margin-top: 8px;
+  }
+  .page-lead {
+    margin-top: 9px;
+    font-size: .88rem;
+    line-height: 1.58;
+  }
+  .section {
+    padding: 15px 0;
+  }
+  .section.tight {
+    padding-top: 6px;
+  }
+  .section-title {
+    font-size: clamp(1.12rem, 5vw, 1.38rem);
+    margin-bottom: 9px;
+  }
+  .grid,
+  .grid.two,
+  .grid.four {
+    gap: 9px;
+  }
+  .card,
+  .split-panel,
+  .guide-callout,
+  .notice,
+  .mini-note,
+  .price-plan-card,
+  .pricing-summary-main,
+  .output-type-card {
+    border-radius: 15px;
+    padding: 13px;
+  }
+  .card h2 {
+    font-size: 1rem;
+    margin-bottom: 5px;
+  }
+  .card h3 {
+    font-size: .94rem;
+  }
+  .card p,
+  .split-panel p,
+  .mini-note p,
+  .guide-callout p:last-child {
+    font-size: .88rem;
+    line-height: 1.55;
+  }
+  .button-row {
+    gap: 7px;
+  }
+  .btn,
+  .fake-button {
+    min-height: 38px;
+    padding: 7px 12px;
+    font-size: .84rem;
+  }
+  .footer {
+    padding: 18px 0 24px;
+  }
+  .footer-inner {
+    gap: 10px;
+    font-size: .78rem;
+  }
+
+  /* Guide: reduce top whitespace on mobile but keep the vertical image readable. */
+  .guide-page .guide-container,
+  .guide-visual-shell {
+    width: calc(100% - 14px);
+  }
+  .guide-hero-modern {
+    padding-top: 16px;
+    padding-bottom: 10px;
+  }
+  .guide-hero-copy h1 {
+    font-size: clamp(1.62rem, 8.6vw, 2.18rem);
+    line-height: 1.08;
+  }
+  .guide-hero-copy h1::after {
+    margin-top: 8px;
+  }
+  .guide-hero-copy p {
+    font-size: .86rem;
+    line-height: 1.58;
+  }
+  .guide-visual-shell {
+    padding: 5px;
+    border-radius: 18px;
+  }
+  .guide-picture img {
+    border-radius: 14px;
+  }
+  .guide-actions {
+    gap: 8px;
+    padding-top: 10px;
+  }
+  .guide-actions .btn {
+    min-height: 44px;
+    font-size: .88rem;
+  }
+
+  /* Pricing: make the mobile view feel less stretched. */
+  .pricing-summary-card {
+    gap: 8px;
+    padding: 8px;
+    border-radius: 18px;
+  }
+  .section-heading-row {
+    margin-bottom: 10px;
+  }
+  .section-subtext {
+    margin-top: -4px;
+    font-size: .84rem;
+    line-height: 1.5;
+  }
+  .price-plan-grid,
+  .output-type-grid,
+  .pricing-flow-list {
+    gap: 9px;
+  }
+  .price-plan-top h3 {
+    font-size: 1.08rem;
+  }
+  .price-plan-desc {
+    margin-bottom: 8px;
+    font-size: .84rem;
+  }
+  .price-value {
+    margin-bottom: 9px;
+  }
+  .price-value span {
+    font-size: 2rem;
+  }
+  .price-feature-list {
+    padding-top: 9px;
+    gap: 5px;
+    font-size: .84rem;
+  }
+  .pricing-flow-list li {
+    padding: 11px 12px;
+    border-radius: 14px;
+    font-size: .86rem;
+  }
+}
