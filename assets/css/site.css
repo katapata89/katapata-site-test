@@ -1189,3 +1189,156 @@ body {
   .guide-hero-copy h1 { font-size: clamp(1.95rem, 10vw, 2.75rem); }
   .guide-hero-copy p { line-height: 1.72; }
 }
+
+/* ------------------------------------------------------------
+   KATAPATA compact title + mustard accent update
+   ------------------------------------------------------------ */
+:root {
+  --accent: #b68a1f;
+  --accent-dark: #59410f;
+  --accent-soft: #f1dfaa;
+  --accent-pale: #fbf4db;
+  --grid: rgba(182, 138, 31, 0.095);
+  --line: #d4c5ab;
+}
+
+.site-header {
+  border-bottom-color: rgba(182, 138, 31, 0.18);
+}
+.site-nav a:hover,
+.site-nav a.is-active {
+  background: rgba(182, 138, 31, .13);
+}
+
+/* Tighten the page-title area and add a small mustard accent. */
+.page-hero {
+  padding: 34px 0 14px;
+}
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-dark);
+  background: rgba(182, 138, 31, .13);
+  border: 1px solid rgba(182, 138, 31, .18);
+  border-radius: 999px;
+  padding: 4px 10px;
+  margin-bottom: 10px;
+  font-size: .66rem;
+  letter-spacing: .12em;
+}
+.eyebrow::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.page-title {
+  font-size: clamp(1.72rem, 3.7vw, 3.05rem);
+  line-height: 1.08;
+  letter-spacing: .02em;
+  max-width: 900px;
+}
+.page-title::after {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  margin-top: 12px;
+}
+.page-lead {
+  max-width: 690px;
+  margin-top: 12px;
+  font-size: .98rem;
+  line-height: 1.72;
+}
+
+.section {
+  padding: 25px 0;
+}
+.section-title {
+  font-size: clamp(1.26rem, 2.45vw, 1.82rem);
+  margin-bottom: 14px;
+}
+.card {
+  border-color: rgba(182, 138, 31, .18);
+}
+.card h2,
+.card h3,
+.article-item h2,
+.mini-note h3,
+.split-panel h2 {
+  letter-spacing: .01em;
+}
+.badge,
+.article-date {
+  color: var(--accent-dark);
+  background: rgba(182, 138, 31, .12);
+  border-color: rgba(182, 138, 31, .18);
+}
+.btn.primary,
+.fake-button.primary {
+  background: #3f3027;
+  border-color: #3f3027;
+}
+.btn:not(.primary):hover,
+.fake-button:not(.primary):hover {
+  border-color: rgba(182, 138, 31, .45);
+  background: var(--accent-pale);
+}
+.step::before {
+  background: var(--accent);
+  color: #fffdf8;
+}
+.notice,
+.mini-note,
+.list-card,
+.outputGuideItem,
+.guide-callout {
+  border-color: rgba(182, 138, 31, .16);
+}
+.article-item:hover {
+  border-color: rgba(182, 138, 31, .28);
+}
+
+/* Guide page: keep the wide image visible while matching the mustard accent. */
+.guide-hero-modern {
+  padding-top: clamp(20px, 2.5vw, 30px);
+  padding-bottom: clamp(10px, 1.4vw, 16px);
+}
+.guide-hero-copy h1 {
+  font-size: clamp(1.86rem, 3vw, 2.72rem);
+}
+.guide-hero-copy h1::after {
+  content: "";
+  display: block;
+  width: 46px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  margin-top: 10px;
+}
+.guide-hero-copy p {
+  font-size: .94rem;
+}
+.guide-actions .btn:not(.primary) {
+  background: var(--accent-pale);
+}
+
+@media (max-width: 840px) {
+  .page-hero { padding: 28px 0 13px; }
+  .page-title { font-size: clamp(1.45rem, 6.8vw, 2.12rem); }
+  .page-lead { font-size: .92rem; }
+  .section { padding: 22px 0; }
+}
+
+@media (max-width: 520px) {
+  .page-hero { padding-top: 24px; }
+  .eyebrow { font-size: .62rem; padding: 3px 9px; }
+  .page-title::after { margin-top: 10px; width: 42px; }
+  .section { padding: 19px 0; }
+  .guide-hero-copy h1 { font-size: clamp(1.75rem, 9vw, 2.42rem); }
+}
