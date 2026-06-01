@@ -304,7 +304,10 @@
     free.appendChild(makeEl('div', 'kop-section-title', '無料：縮小サンプルPDF'));
     free.appendChild(makeEl('p', 'kop-desc', '確認用です。実寸ではありません。'));
     var freeActions = makeEl('div', 'kop-actions');
-    if (sampleBtn) freeActions.appendChild(sampleBtn);
+    if (sampleBtn) {
+      sampleBtn.textContent = '縮小サンプルを出力';
+      freeActions.appendChild(sampleBtn);
+    }
     else freeActions.appendChild(makeEl('div', 'kop-empty', '縮小サンプルPDFのボタンが見つかりませんでした。'));
     free.appendChild(freeActions);
     panel.appendChild(free);
@@ -313,13 +316,17 @@
     paid.appendChild(makeEl('div', 'kop-section-title', '有料：印刷用PDF'));
     paid.appendChild(makeEl('p', 'kop-desc', '有料出力では、通常サイズPDFとA4分割印刷PDFをセットで使えます。トップスは前・後・袖の3点セット800円、ボトムスはスカートとパンツ、各400円を予定しています。'));
     var paidActions = makeEl('div', 'kop-actions');
-    if (purchaseBtn) paidActions.appendChild(purchaseBtn);
+    if (purchaseBtn) {
+      purchaseBtn.textContent = '印刷用PDFを購入';
+      paidActions.appendChild(purchaseBtn);
+    }
     else paidActions.appendChild(makeEl('div', 'kop-empty', '購入後に利用できます。テスト時以外は直接ダウンロードボタンを表示しません。'));
     paid.appendChild(paidActions);
     panel.appendChild(paid);
 
     if (backBtn) {
       var back = makeEl('div', 'kop-actions');
+      backBtn.textContent = '確定に戻る';
       back.appendChild(backBtn);
       panel.appendChild(back);
     }
