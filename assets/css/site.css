@@ -1342,3 +1342,50 @@ body {
   .section { padding: 19px 0; }
   .guide-hero-copy h1 { font-size: clamp(1.75rem, 9vw, 2.42rem); }
 }
+
+
+/* ------------------------------------------------------------
+   KATAPATA mustard visibility refinement
+   - Make the mustard accent a little yellower.
+   - Fix the guide primary button so the text is readable.
+   ------------------------------------------------------------ */
+:root {
+  --accent: #d3a51f;
+  --accent-dark: #5f4708;
+  --accent-soft: #f3dd8f;
+  --accent-pale: #fff7d8;
+  --grid: rgba(211, 165, 31, 0.09);
+}
+
+/* The guide CTA sits under the illustration; keep it mustard, not white text on a pale field. */
+.guide-actions .guide-primary,
+.guide-actions .guide-primary:visited {
+  background: linear-gradient(180deg, #e1bd42 0%, #cfa022 100%);
+  color: #2f2614;
+  border-color: rgba(132, 96, 9, .34);
+  box-shadow: 0 10px 22px rgba(132, 96, 9, .16);
+  text-shadow: none;
+}
+.guide-actions .guide-primary:hover {
+  background: linear-gradient(180deg, #e8c750 0%, #d5aa29 100%);
+  color: #1f190d;
+  border-color: rgba(132, 96, 9, .42);
+}
+
+.guide-actions .guide-secondary {
+  background: rgba(255, 247, 216, .72);
+  color: var(--accent-dark);
+  border-color: rgba(211, 165, 31, .28);
+}
+
+.eyebrow,
+.badge,
+.article-date {
+  background: rgba(211, 165, 31, .14);
+  border-color: rgba(211, 165, 31, .22);
+}
+
+.site-nav a:hover,
+.site-nav a.is-active {
+  background: rgba(211, 165, 31, .13);
+}
