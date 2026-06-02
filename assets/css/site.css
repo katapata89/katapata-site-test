@@ -1857,3 +1857,54 @@ body {
     font-size: .86rem;
   }
 }
+
+/* Tool selection: show the pattern tool as under construction and non-clickable. */
+.tool-choice-disabled {
+  position: relative;
+  background: linear-gradient(180deg, #f4f2ee 0%, #ece8df 100%);
+  border-color: #d7d2c8;
+  color: #6f6a62;
+  box-shadow: none;
+  cursor: not-allowed;
+  overflow: hidden;
+}
+
+.tool-choice-disabled::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, .026) 0,
+    rgba(0, 0, 0, .026) 8px,
+    transparent 8px,
+    transparent 18px
+  );
+  pointer-events: none;
+}
+
+.tool-choice-disabled > * {
+  position: relative;
+  z-index: 1;
+}
+
+.tool-choice-disabled h2,
+.tool-choice-disabled p {
+  color: #6f6a62;
+}
+
+.disabled-badge {
+  background: #ded9cf !important;
+  border-color: #cfc8bb !important;
+  color: #6f6a62 !important;
+}
+
+.fake-button.disabled,
+.fake-button[aria-disabled="true"] {
+  background: #d7d2c8 !important;
+  border-color: #cfc8bb !important;
+  color: #6f6a62 !important;
+  box-shadow: none !important;
+  pointer-events: none;
+  cursor: not-allowed;
+}
