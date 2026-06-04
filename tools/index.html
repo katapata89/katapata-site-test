@@ -4,10 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ツール選択 | KATAPATA</title>
-  <meta name="description" content="KATAPATAの原型作成ツール・型紙作成ツールを選ぶページです。">
+  <meta name="description" content="KATAPATAのツール選択ページです。原型作成ツールと準備中の型紙作成ツールを案内します。">
+  <meta property="og:title" content="ツール選択 | KATAPATA">
+  <meta property="og:description" content="KATAPATAのツール選択ページです。原型作成ツールと準備中の型紙作成ツールを案内します。">
+  <meta property="og:type" content="website">
   <link rel="stylesheet" href="../assets/css/site.css">
 </head>
 <body>
+
 <header class="site-header">
   <div class="nav-wrap">
     <a class="brand" href="../index.html" aria-label="KATAPATA home">
@@ -16,53 +20,22 @@
     </a>
     <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false">MENU</button>
     <nav class="site-nav" data-site-nav>
-      <a href="../about.html">はじめに</a>
-      <a href="../tools/index.html">ツール</a>
-      <a href="../guide/index.html">使い方</a>
-      <a href="../examples/index.html">使用例</a>
-      <a href="../blog/index.html">ブログ</a>
-      <a href="../pricing/index.html">料金</a>
-      <a href="../help/index.html">FAQ</a>
+      <a href="../about.html">はじめに</a><a class="is-active" href="../tools/index.html">ツール</a><a href="../guide/index.html">使い方</a><a href="../examples/index.html">使用例</a><a href="../blog/index.html">ブログ</a><a href="../pricing/index.html">料金</a><a href="../help/index.html">FAQ</a>
+      
+      <span class="lang-switch" aria-label="Language">
+        <a class="is-active" href="#" lang="ja">日本語</a>
+        <a class="" href="../en/tools/index.html" lang="en">English</a>
+      </span>
     </nav>
   </div>
 </header>
 <main class="main">
 
-<section class="page-hero container">
-  <p class="eyebrow">Tools</p>
-  <h1 class="page-title">作りたいものを選ぶ</h1>
-  <p class="page-lead">まずは原型作成ツールから始めます。型紙作成ツールは、今後追加していく予定です。</p>
-</section>
-
-<section class="section container tight">
-  <div class="grid two">
-    <a class="card card-link featured tool-choice" href="sloper/index.html">
-      <span class="badge">Available</span>
-      <h2>原型作成ツール</h2>
-      <p>サイズ入力から原型確認、調整、PDF出力まで進むメインツールです。</p>
-      <span class="fake-button">原型を作る</span>
-    </a>
-    <article class="card tool-choice tool-choice-disabled" aria-disabled="true">
-      <span class="badge disabled-badge">準備中</span>
-      <h2>型紙作成ツール</h2>
-      <p>原型をもとに、デザイン展開や実用型紙へ進むための場所です。現在は準備中です。</p>
-      <span class="fake-button disabled" aria-disabled="true">ただいま準備中</span>
-    </article>
-  </div>
-</section>
-
-<section class="section container">
-  <div class="guide-callout">
-    <div>
-      <p class="eyebrow">First Guide</p>
-      <h2>初めての方へ</h2>
-      <p>使う前に、猫のかんたんガイドで全体の流れを確認できます。</p>
-    </div>
-    <a class="btn primary" href="../guide/index.html">はじめてガイドを見る</a>
-  </div>
-</section>
-
+<section class="page-hero container"><p class="eyebrow">Tools</p><h1 class="page-title">作りたいものを選ぶ</h1><p class="page-lead">まずは原型作成ツールから始めます。型紙作成ツールは、今後追加していく予定です。</p></section>
+<section class="section container"><div class="grid two"><a class="card card-link tool-choice featured" href="sloper/index.html"><span class="kicker">Available</span><h2>原型作成ツール</h2><p>サイズ入力から原型確認、調整、PDF出力まで進むメインツールです。</p><span class="fake-button">原型を作る</span></a><article class="card tool-choice tool-choice-disabled status-card"><span class="kicker disabled-badge">準備中</span><h2>型紙作成ツール</h2><p>原型をもとに、デザイン展開や実用型紙へ進むための場所です。現在は準備中です。</p><span class="fake-button disabled" aria-disabled="true">ただいま準備中</span></article></div></section>
+<section class="section container"><div class="guide-callout small"><div><p class="eyebrow">First Guide</p><h2>初めての方へ</h2><p>使う前に、猫のかんたんガイドで全体の流れを確認できます。</p></div><a class="btn primary" href="../guide/index.html">はじめてガイドを見る</a></div></section>
 </main>
+
 <footer class="footer">
   <div class="footer-inner">
     <div><strong>KATAPATA</strong><br>洋裁の原型作成を、もっとわかりやすく。</div>
