@@ -1,16 +1,13 @@
-# KATAPATA bilingual site package
+# KATAPATA site bilingual update v2
 
-This package keeps the existing static-site style and adds an English page tree under `/en/`.
+## 変更内容
 
-## Included
+- `/en/` 以下に英語ページを追加した二言語構成を維持しました。
+- 日本語版 `guide/index.html` は、イラスト付き「KATAPATA はじめてガイド」を表示する形に戻しました。
+- `assets/img/katapata-guide-cat-wide.png` と `assets/img/katapata-guide-cat.png` を同梱しました。
+- トップページ `index.html` と `en/index.html` は、KATAPATA本体の導入に近いロゴ＋鉛筆線アニメーションの入口に戻しました。
+- `tools/sloper/app/katapata.html` は、今回アップロードされたKATAPATA本体を同梱しています。
 
-- Japanese site pages at the existing paths
-- English pages under `/en/`
-- Shared CSS and JS under `/assets/`
-- Latest uploaded KATAPATA app at `tools/sloper/app/katapata.html`
+## 反映方法
 
-## How to use
-
-Copy the contents of this package into the root of `katapata-site-test` and commit the changes.
-
-The KATAPATA app itself has its own language and unit switch. The public website uses separate URLs for Japanese and English pages.
+ZIPを解凍し、リポジトリのルートに中身を上書きアップロードしてください。

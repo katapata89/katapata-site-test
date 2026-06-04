@@ -4,55 +4,143 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KATAPATA | 洋裁原型・型紙作成サポートツール</title>
-  <meta name="description" content="KATAPATAは、洋裁の原型作成をブラウザ上でサポートするツールです。寸法入力から調整、確認、PDF出力までをわかりやすく進められます。">
+  <meta name="description" content="KATAPATAは、洋裁の原型作成をブラウザ上でサポートするツールです。">
   <meta property="og:title" content="KATAPATA | 洋裁原型・型紙作成サポートツール">
-  <meta property="og:description" content="KATAPATAは、洋裁の原型作成をブラウザ上でサポートするツールです。寸法入力から調整、確認、PDF出力までをわかりやすく進められます。">
+  <meta property="og:description" content="KATAPATAは、洋裁の原型作成をブラウザ上でサポートするツールです。">
   <meta property="og:type" content="website">
   <link rel="stylesheet" href="assets/css/site.css">
 </head>
-<body>
+<body class="home-intro-body">
+  <main class="home-intro" aria-label="KATAPATA opening">
+    <div class="home-lang-switch" aria-label="Language"><a class="is-active" href="#" lang="ja">日本語</a><a href="en/index.html" lang="en">English</a></div>
+    <section class="home-intro-stage">
+      <div class="home-intro-logo" id="homeIntroLogo" aria-label="KATAPATA">KATAPATA</div>
+      <div class="home-intro-tagline" id="homeIntroTagline">Automatic Sloper Drafting Tool</div>
+      <div class="home-intro-canvas-wrap"><canvas id="homeIntroCanvas" aria-hidden="true"></canvas></div>
+      <p class="home-intro-lead">洋裁の原型作成を、もっとシンプルに。</p>
+      <p class="home-intro-note">ENTERを押すと、KATAPATAの紹介ページへ進みます。</p>
+      <a class="home-enter" id="homeEnter" href="about.html">ENTER</a>
+    </section>
+  </main>
 
-<header class="site-header">
-  <div class="nav-wrap">
-    <a class="brand" href="index.html" aria-label="KATAPATA home">
-      <span class="brand-title">KATAPATA</span>
-      <span class="brand-sub">Automatic Sloper Drafting Tool</span>
-    </a>
-    <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false">MENU</button>
-    <nav class="site-nav" data-site-nav>
-      <a href="about.html">はじめに</a><a href="tools/index.html">ツール</a><a href="guide/index.html">使い方</a><a href="examples/index.html">使用例</a><a href="blog/index.html">ブログ</a><a href="pricing/index.html">料金</a><a href="help/index.html">FAQ</a>
-      
-      <span class="lang-switch" aria-label="Language">
-        <a class="is-active" href="#" lang="ja">日本語</a>
-        <a class="" href="en/index.html" lang="en">English</a>
-      </span>
-    </nav>
-  </div>
-</header>
-<main class="main">
+<script>
+(() => {
+  const canvas = document.getElementById('homeIntroCanvas');
+  const enter = document.getElementById('homeEnter');
+  const logo = document.getElementById('homeIntroLogo');
+  const tagline = document.getElementById('homeIntroTagline');
+  if (!canvas || !enter || !logo || !tagline) return;
 
-<section class="hero container">
-  <div class="hero-card">
-    <div class="logo-block">
-      <p class="logo-sub">Automatic Sloper Drafting Tool</p>
-      <h1 class="logo-main">KATAPATA</h1>
-      <svg class="draw-line" viewBox="0 0 540 24" aria-hidden="true"><path d="M8 14 C 92 6, 168 18, 246 11 S 410 8, 532 14"/></svg>
-      <p class="lead">洋裁の原型作成を、もっとシンプルに。</p>
-      <div class="button-row">
-        <a class="btn primary" href="about.html">はじめに進む</a>
-        <a class="btn ghost" href="en/index.html">English</a>
-      </div>
-    </div>
-  </div>
-</section>
-</main>
+  const text = 'KATAPATA';
+  logo.textContent = '';
+  [...text].forEach((ch, index) => {
+    const span = document.createElement('span');
+    span.textContent = ch;
+    span.className = 'homeIntroLetter';
+    span.style.animationDelay = `${index * 0.26}s`;
+    logo.appendChild(span);
+  });
 
-<footer class="footer">
-  <div class="footer-inner">
-    <div><strong>KATAPATA</strong><br>洋裁の原型作成を、もっとわかりやすく。</div>
-    <div>© KATAPATA.</div>
-  </div>
-</footer>
-<script src="assets/js/site.js"></script>
+  const ctx = canvas.getContext('2d');
+  const BASE_W = 800, BASE_H = 200;
+  const startX = 86, endX = 714, rulerY = 122, drawY = 119;
+  const logoTime = (text.length - 1) * 260 + 560;
+  let startTime = performance.now();
+  let progress = 0;
+  let state = 'waiting';
+  let pauseFrames = 0;
+  let raf = 0;
+
+  const seeded = (seed) => {
+    let s = seed >>> 0;
+    return () => {
+      s = (1664525 * s + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
+  };
+  const rand1 = seeded(18), rand2 = seeded(77);
+  const strokeA = Array.from({length: endX-startX+1}, (_,i)=>({x:startX+i,y:drawY+(rand1()-.5)*.7,draw:rand1()>.008}));
+  const strokeB = Array.from({length: endX-startX+1}, (_,i)=>({x:startX+i,y:drawY+(rand2()-.5)*.52,draw:rand2()>.012}));
+
+  function easeOut(t){ return 1 - Math.pow(1 - t, 3); }
+  function resize(){
+    const wrap = canvas.parentElement;
+    const width = Math.min(800, Math.max(280, Math.floor(window.innerWidth * .86)));
+    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(width * (BASE_H / BASE_W) * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${width * (BASE_H / BASE_W)}px`;
+    if (wrap) wrap.style.width = `${width}px`;
+    ctx.setTransform(dpr * width / BASE_W, 0, 0, dpr * width / BASE_W, 0, 0);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }
+  function clear(){
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height); ctx.restore();
+    ctx.fillStyle = '#f8f5ef'; ctx.fillRect(0,0,BASE_W,BASE_H);
+  }
+  function drawRuler(){
+    ctx.strokeStyle = '#171717'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(startX, rulerY); ctx.lineTo(endX, rulerY); ctx.stroke();
+    for(let x=startX; x<=endX; x+=10){
+      const h = x % 50 === 0 ? 12 : 6;
+      ctx.beginPath(); ctx.moveTo(x, rulerY); ctx.lineTo(x, rulerY+h); ctx.stroke();
+    }
+  }
+  function drawLine(currentX){
+    const xMax = Math.max(startX, Math.min(endX, Math.floor(currentX)));
+    ctx.strokeStyle = 'rgba(20,20,20,.56)'; ctx.lineWidth = 1.25;
+    ctx.beginPath(); ctx.moveTo(startX, drawY); ctx.lineTo(xMax, drawY); ctx.stroke();
+    for (const [pts, alpha, width] of [[strokeA,.21,.66],[strokeB,.16,.72]]){
+      ctx.beginPath(); let started=false;
+      for(const p of pts){
+        if(p.x > xMax) break;
+        if(p.draw){ if(!started){ctx.moveTo(p.x,p.y); started=true;} else ctx.lineTo(p.x,p.y); }
+        else started=false;
+      }
+      ctx.strokeStyle = `rgba(40,40,40,${alpha})`; ctx.lineWidth = width; ctx.stroke();
+    }
+  }
+  function pencil(x,y,now){
+    ctx.save();
+    let lift=0, drift=0, angle=.6 + Math.sin(now*.012)*.012;
+    if(state === 'lift'){
+      const t = Math.min((progress - 1) * 2, 1);
+      lift = (1 - Math.pow(1 - t,2)) * 120; drift = t * 30; angle += t * .2;
+    }
+    ctx.translate(x+drift, y - lift*.4); ctx.scale(-1,1); ctx.rotate(angle);
+    ctx.shadowColor = 'rgba(0,0,0,.15)'; ctx.shadowBlur = 3;
+    ctx.fillStyle = '#2a2a2a'; ctx.beginPath(); ctx.moveTo(-40,-7); ctx.lineTo(-10,-7); ctx.lineTo(0,0); ctx.lineTo(-10,7); ctx.lineTo(-40,7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#5a4a3a'; ctx.beginPath(); ctx.moveTo(-10,-7); ctx.lineTo(-4,-7); ctx.lineTo(6,0); ctx.lineTo(-4,7); ctx.lineTo(-10,7); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.moveTo(-4,-4); ctx.lineTo(6,0); ctx.lineTo(-4,4); ctx.fill();
+    ctx.restore();
+  }
+  function tick(now){
+    const elapsed = now - startTime;
+    clear();
+    if(state === 'waiting' && elapsed > logoTime){ state='drawing'; tagline.classList.add('show'); }
+    const eased = easeOut(Math.min(progress,1));
+    let currentX = startX + (endX - startX) * eased;
+    currentX = currentX*.9 + Math.round(currentX/10)*10*.1;
+    if(state !== 'waiting'){
+      drawRuler(); drawLine(currentX); pencil(currentX, drawY, now);
+    }
+    if(state === 'drawing'){
+      progress += progress < .7 ? .004 : .0032;
+      if(progress >= 1){ progress = 1; state='pause'; }
+    } else if(state === 'pause'){
+      pauseFrames++;
+      if(pauseFrames > 8) state = 'lift';
+    } else if(state === 'lift'){
+      progress += .02;
+      if(progress > 1.3) enter.classList.add('show');
+    }
+    if(!(state === 'lift' && progress > 1.62)) raf = requestAnimationFrame(tick);
+  }
+  window.addEventListener('resize', () => { resize(); });
+  resize(); tick(performance.now());
+})();
+</script>
 </body>
 </html>
