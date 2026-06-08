@@ -381,3 +381,160 @@
     startOutputObserver();
   }
 })();
+
+/*
+ * KATAPATA site-only iPad portrait readability fix.
+ * Keeps the existing mini intro/output cleanup, then overrides only tablet portrait sizing.
+ */
+(function () {
+  'use strict';
+
+  function injectIpadReadableStyle() {
+    if (document.getElementById('katapataIpadReadableTorsoStyle')) return;
+
+    var css = '' +
+      '@media (min-width: 700px) and (max-width: 1100px) and (orientation: portrait) {\n' +
+      '  /* iPad portrait: stop the measure screen from becoming a huge empty frame. */\n' +
+      '  .main[data-stage="measure"] {\n' +
+      '    padding: 8px !important;\n' +
+      '    gap: 8px !important;\n' +
+      '  }\n' +
+      '  .main[data-stage="measure"] .canvas {\n' +
+      '    height: auto !important;\n' +
+      '    min-height: 0 !important;\n' +
+      '    padding: 0 !important;\n' +
+      '    align-items: flex-start !important;\n' +
+      '  }\n' +
+      '  .main[data-stage="measure"] .measureCanvas {\n' +
+      '    min-height: 0 !important;\n' +
+      '    padding: 8px 10px 10px !important;\n' +
+      '    align-items: flex-start !important;\n' +
+      '  }\n' +
+      '  .measureHero {\n' +
+      '    gap: 8px !important;\n' +
+      '  }\n' +
+      '  .measureFigureGrid {\n' +
+      '    gap: 10px !important;\n' +
+      '    align-items: end !important;\n' +
+      '  }\n' +
+      '  .torsoWrap {\n' +
+      '    width: min(40vw, 320px) !important;\n' +
+      '    height: auto !important;\n' +
+      '    aspect-ratio: 594 / 1122 !important;\n' +
+      '  }\n' +
+      '  .torsoWrap.side {\n' +
+      '    width: min(23vw, 186px) !important;\n' +
+      '    height: auto !important;\n' +
+      '    aspect-ratio: 334 / 1118 !important;\n' +
+      '  }\n' +
+      '  .measureGuide text {\n' +
+      '    font-size: 40px !important;\n' +
+      '    fill: #171717 !important;\n' +
+      '    opacity: 1 !important;\n' +
+      '    stroke: rgba(255,255,255,.92) !important;\n' +
+      '    stroke-width: 8px !important;\n' +
+      '    paint-order: stroke !important;\n' +
+      '    font-weight: 950 !important;\n' +
+      '  }\n' +
+      '  .measureGuide line, .measureGuide path {\n' +
+      '    stroke: #171717 !important;\n' +
+      '    stroke-width: 8px !important;\n' +
+      '    opacity: 1 !important;\n' +
+      '  }\n' +
+      '  .frontSleeveGuide line { stroke-width: 7px !important; }\n' +
+      '  /* iPad portrait: make UI text readable, not tiny/thin. */\n' +
+      '  .appTop { padding: 10px 12px !important; }\n' +
+      '  .appBrand h1 { font-size: 18px !important; letter-spacing: .11em !important; }\n' +
+      '  .appBrand .note, .note {\n' +
+      '    font-size: 10.5px !important;\n' +
+      '    line-height: 1.35 !important;\n' +
+      '    color: #5d5247 !important;\n' +
+      '    font-weight: 850 !important;\n' +
+      '  }\n' +
+      '  .appStagebar { gap: 6px !important; }\n' +
+      '  .appStagebar .stage, .stage, .parttabs .stage {\n' +
+      '    height: 34px !important;\n' +
+      '    min-height: 34px !important;\n' +
+      '    font-size: 12px !important;\n' +
+      '    font-weight: 950 !important;\n' +
+      '    color: #4f463d !important;\n' +
+      '  }\n' +
+      '  .stage.active, .appStagebar .stage.active, .parttabs .stage.active {\n' +
+      '    color: #fffdf8 !important;\n' +
+      '  }\n' +
+      '  .panel { padding: 12px 13px !important; }\n' +
+      '  .panel h2, .panelTitleRow h2 {\n' +
+      '    font-size: 15px !important;\n' +
+      '    line-height: 1.25 !important;\n' +
+      '    color: #241f1b !important;\n' +
+      '    font-weight: 950 !important;\n' +
+      '  }\n' +
+      '  .stageCaption, .metricNote, .toolHint, .partIntro, .adjustMiniIntro, .dartMiniText, .confirmMiniText, .outputMiniText, .printNote, .measureMiniNote {\n' +
+      '    font-size: 12.5px !important;\n' +
+      '    line-height: 1.55 !important;\n' +
+      '    color: #3f3932 !important;\n' +
+      '    font-weight: 850 !important;\n' +
+      '  }\n' +
+      '  .measureHeroTitle { padding: 7px 12px !important; }\n' +
+      '  .measureHeroTitle span {\n' +
+      '    font-size: 9.5px !important;\n' +
+      '    color: #5d5247 !important;\n' +
+      '    font-weight: 950 !important;\n' +
+      '  }\n' +
+      '  .measureHeroTitle strong {\n' +
+      '    font-size: 18px !important;\n' +
+      '    color: #171717 !important;\n' +
+      '  }\n' +
+      '  .measureEntryTitle {\n' +
+      '    font-size: 17px !important;\n' +
+      '    line-height: 1.25 !important;\n' +
+      '    color: #171717 !important;\n' +
+      '  }\n' +
+      '  .measureEntryLead {\n' +
+      '    font-size: 11.5px !important;\n' +
+      '    line-height: 1.45 !important;\n' +
+      '    color: #4f463d !important;\n' +
+      '    font-weight: 800 !important;\n' +
+      '  }\n' +
+      '  .measureEntryBadge {\n' +
+      '    font-size: 10px !important;\n' +
+      '    padding: 4px 10px !important;\n' +
+      '  }\n' +
+      '  .measureInputCard { padding: 8px 9px !important; border-radius: 13px !important; }\n' +
+      '  .measureInputLabel strong {\n' +
+      '    font-size: 12px !important;\n' +
+      '    color: #241f1b !important;\n' +
+      '    font-weight: 950 !important;\n' +
+      '  }\n' +
+      '  .measureInputHint {\n' +
+      '    font-size: 9.5px !important;\n' +
+      '    color: #6d6258 !important;\n' +
+      '    font-weight: 850 !important;\n' +
+      '  }\n' +
+      '  .measureInputBox input {\n' +
+      '    height: 34px !important;\n' +
+      '    font-size: 18px !important;\n' +
+      '    color: #171717 !important;\n' +
+      '  }\n' +
+      '  .measureInputBox .unit {\n' +
+      '    font-size: 11px !important;\n' +
+      '    color: #5d5247 !important;\n' +
+      '  }\n' +
+      '  .measureAction, button, .printAction {\n' +
+      '    font-size: 12px !important;\n' +
+      '    font-weight: 950 !important;\n' +
+      '  }\n' +
+      '}\n';
+
+    var style = document.createElement('style');
+    style.id = 'katapataIpadReadableTorsoStyle';
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectIpadReadableStyle, { once: true });
+  } else {
+    injectIpadReadableStyle();
+  }
+})();
