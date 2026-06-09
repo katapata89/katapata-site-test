@@ -680,3 +680,113 @@
     observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-stage', 'class'] });
   }
 })();
+
+/* KATAPATA measure panel scroll fix for small-height PCs/tablets.
+ * Keeps the create button visible by making only the measurement panel/side scrollable.
+ */
+(function () {
+  'use strict';
+  function injectMeasureScrollFix() {
+    if (document.getElementById('katapataMeasureScrollFixStyle')) return;
+    var style = document.createElement('style');
+    style.id = 'katapataMeasureScrollFixStyle';
+    style.textContent = [
+      '/* Small-height desktop / tablet: avoid the measurement form being cut off. */',
+      '@media (min-width: 700px) and (max-height: 860px) {',
+      '  .main[data-stage="measure"] {',
+      '    overflow: hidden !important;',
+      '  }',
+      '  .main[data-stage="measure"] .side {',
+      '    max-height: calc(100svh - 112px) !important;',
+      '    overflow-y: auto !important;',
+      '    overflow-x: hidden !important;',
+      '    overscroll-behavior: contain !important;',
+      '    align-content: start !important;',
+      '    padding-right: 8px !important;',
+      '    scrollbar-width: thin;',
+      '    scrollbar-color: #b9aa93 #f4efe6;',
+      '  }',
+      '  .main[data-stage="measure"] .side::-webkit-scrollbar { width: 8px; }',
+      '  .main[data-stage="measure"] .side::-webkit-scrollbar-track { background: #f4efe6; border-radius: 999px; }',
+      '  .main[data-stage="measure"] .side::-webkit-scrollbar-thumb { background: #b9aa93; border-radius: 999px; }',
+      '  .main[data-stage="measure"] .measureAction {',
+      '    position: sticky !important;',
+      '    bottom: 6px !important;',
+      '    z-index: 30 !important;',
+      '    box-shadow: 0 10px 22px rgba(23,23,23,.16) !important;',
+      '  }',
+      '  .main[data-stage="measure"] .measureMiniNote {',
+      '    margin-bottom: 8px !important;',
+      '  }',
+      '}',
+      '',
+      '/* Very small-height laptops: compact the measurement side a little more. */',
+      '@media (min-width: 860px) and (max-height: 720px) {',
+      '  .main[data-stage="measure"] {',
+      '    grid-template-columns: minmax(0,1fr) minmax(300px,340px) !important;',
+      '    gap: 10px !important;',
+      '    padding: 10px !important;',
+      '  }',
+      '  .main[data-stage="measure"] .canvas {',
+      '    height: calc(100svh - 104px) !important;',
+      '    min-height: 360px !important;',
+      '  }',
+      '  .main[data-stage="measure"] .side {',
+      '    max-height: calc(100svh - 104px) !important;',
+      '  }',
+      '  .main[data-stage="measure"] .panel {',
+      '    padding: 9px 10px !important;',
+      '    border-radius: 14px !important;',
+      '  }',
+      '  .main[data-stage="measure"] .measureEntryPanel { gap: 5px !important; }',
+      '  .main[data-stage="measure"] .measureFormGrid,',
+      '  .main[data-stage="measure"] .measureRequiredColumn,',
+      '  .main[data-stage="measure"] .optionalSleeveGrid {',
+      '    gap: 5px !important;',
+      '  }',
+      '  .main[data-stage="measure"] .measureInputCard {',
+      '    padding: 5px 6px !important;',
+      '    border-radius: 10px !important;',
+      '  }',
+      '  .main[data-stage="measure"] .measureInputBox input {',
+      '    height: 24px !important;',
+      '    font-size: 13px !important;',
+      '  }',
+      '  .main[data-stage="measure"] .measureAction {',
+      '    min-height: 34px !important;',
+      '    height: 34px !important;',
+      '    font-size: 11px !important;',
+      '  }',
+      '}',
+      '',
+      '/* Tablet portrait: use the same idea, but keep a little more breathing room. */',
+      '@media (min-width: 700px) and (max-width: 1100px) and (orientation: portrait) {',
+      '  .main[data-stage="measure"] .side {',
+      '    max-height: min(44svh, 470px) !important;',
+      '    overflow-y: auto !important;',
+      '    padding-right: 8px !important;',
+      '  }',
+      '  .main[data-stage="measure"] .measureAction {',
+      '    position: sticky !important;',
+      '    bottom: 6px !important;',
+      '  }',
+      '}',
+      '',
+      '/* Small phones are already vertical; let the page scroll normally. */',
+      '@media (max-width: 699px) {',
+      '  .main[data-stage="measure"] .side {',
+      '    max-height: none !important;',
+      '    overflow: visible !important;',
+      '    padding-right: 0 !important;',
+      '  }',
+      '  .main[data-stage="measure"] .measureAction { position: static !important; }',
+      '}'
+    ].join('\n');
+    document.head.appendChild(style);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectMeasureScrollFix);
+  } else {
+    injectMeasureScrollFix();
+  }
+})();
