@@ -602,3 +602,63 @@
     injectIpadReadableStyle();
   }
 })();
+
+/*
+ * KATAPATA English output badge fix.
+ * Some locked print buttons use a CSS ::after badge whose original content is "有料".
+ * When the output screen is in English, force that badge to read "Paid".
+ */
+(function () {
+  'use strict';
+
+  function looksEnglish() {
+    var htmlLang = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+    var bodyText = (document.body && (document.body.innerText || document.body.textContent) || '');
+    var s = [htmlLang, bodyText || '', location.href || ''].join(' ');
+    return /\blang=en\b|[?&]lang=en\b|\/en(?:\/|$)/i.test(s) || /\b(Full-size|A4 tiled|Print-ready|Output target|With sleeve|No sleeve|Purchase print-ready PDF|Sample PDF)\b/i.test(s);
+  }
+
+  function injectStyle() {
+    if (document.getElementById('katapataEnglishPaidBadgeFixStyle')) return;
+    var style = document.createElement('style');
+    style.id = 'katapataEnglishPaidBadgeFixStyle';
+    style.textContent = '' +
+      'body.katapata-output-lang-en .printAction.locked::after,\n' +
+      'body.katapata-output-lang-en .printAction.paid::after,\n' +
+      'body.katapata-output-lang-en button.locked::after,\n' +
+      'body.katapata-output-lang-en .locked::after { content: "Paid" !important; }\n';
+    document.head.appendChild(style);
+  }
+
+  function replaceVisibleBadges() {
+    if (!looksEnglish()) return;
+    document.body.classList.add('katapata-output-lang-en');
+    injectStyle();
+
+    var nodes = document.querySelectorAll('.main[data-stage="output"] *');
+    Array.prototype.forEach.call(nodes, function (el) {
+      if (!el || el.children.length) return;
+      var t = (el.textContent || '').trim();
+      if (t === '有料') el.textContent = 'Paid';
+      if (t === '無料') el.textContent = 'Free';
+    });
+  }
+
+  function schedule() {
+    window.setTimeout(replaceVisibleBadges, 0);
+    window.setTimeout(replaceVisibleBadges, 80);
+    window.setTimeout(replaceVisibleBadges, 240);
+    window.setTimeout(replaceVisibleBadges, 700);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', schedule, { once: true });
+  } else {
+    schedule();
+  }
+  document.addEventListener('click', schedule, true);
+  if (window.MutationObserver) {
+    var observer = new MutationObserver(schedule);
+    observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-stage', 'class'] });
+  }
+})();
