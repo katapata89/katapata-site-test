@@ -923,3 +923,274 @@
     start();
   }
 })();
+
+/*
+ * KATAPATA offline support + autosave safety net.
+ * - Registers the site service worker for offline use after first online load.
+ * - Keeps a local draft snapshot of common input/select/textarea fields.
+ * - Shows a small restore notice if previous work is found after reload.
+ */
+(function () {
+  'use strict';
+
+  var SW_PATH = '/service-worker.js';
+  var DRAFT_KEY = 'katapata.site.autodraft.v1';
+  var DISMISSED_KEY = 'katapata.site.autodraft.dismissedAt.v1';
+  var SAVE_DELAY = 700;
+  var MAX_AGE_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
+  var saveTimer = 0;
+
+  function isKataPath() {
+    return /\/tools\/sloper\/app\//.test(location.pathname);
+  }
+
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    if (!/^https?:$/.test(location.protocol)) return;
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register(SW_PATH, { scope: '/' }).catch(function () {});
+    });
+  }
+
+  function isSensitiveField(el) {
+    if (!el || !el.tagName) return true;
+    var tag = el.tagName.toLowerCase();
+    if (!/^(input|select|textarea)$/.test(tag)) return true;
+    var type = (el.type || '').toLowerCase();
+    if (['password', 'file', 'hidden', 'submit', 'button', 'reset'].indexOf(type) !== -1) return true;
+    var marker = ((el.id || '') + ' ' + (el.name || '') + ' ' + (el.className || '') + ' ' + (el.placeholder || '') + ' ' + (el.getAttribute('aria-label') || '')).toLowerCase();
+    if (/license|licence|key|stripe|payment|card|secret|token|coupon|email/.test(marker)) return true;
+    return false;
+  }
+
+  function fieldKey(el, index) {
+    var tag = el.tagName.toLowerCase();
+    if (el.id) return tag + '#id:' + el.id;
+    if (el.name) return tag + '#name:' + el.name;
+    var label = el.getAttribute('aria-label') || el.getAttribute('placeholder') || '';
+    if (label) return tag + '#label:' + label;
+    return tag + '#index:' + index;
+  }
+
+  function getFields() {
+    return Array.prototype.slice.call(document.querySelectorAll('input, select, textarea')).filter(function (el) {
+      return !isSensitiveField(el);
+    });
+  }
+
+  function readField(el) {
+    var type = (el.type || '').toLowerCase();
+    if (type === 'checkbox' || type === 'radio') return { checked: !!el.checked };
+    return { value: el.value };
+  }
+
+  function writeField(el, data) {
+    if (!data) return;
+    var type = (el.type || '').toLowerCase();
+    var changed = false;
+    if ((type === 'checkbox' || type === 'radio') && Object.prototype.hasOwnProperty.call(data, 'checked')) {
+      changed = el.checked !== !!data.checked;
+      el.checked = !!data.checked;
+    } else if (Object.prototype.hasOwnProperty.call(data, 'value')) {
+      changed = el.value !== String(data.value == null ? '' : data.value);
+      el.value = String(data.value == null ? '' : data.value);
+    }
+    if (changed) {
+      try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+      try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+    }
+  }
+
+  function getActiveStage() {
+    var main = document.querySelector('.main[data-stage]');
+    return main ? (main.getAttribute('data-stage') || '') : '';
+  }
+
+  function clickStage(stage) {
+    if (!stage) return;
+    var candidates = Array.prototype.slice.call(document.querySelectorAll('.stage, button, [role="button"]'));
+    var textMap = {
+      measure: /寸法|input|measure/i,
+      adjust: /トップス調整|調整|tops|adjust/i,
+      bottom: /ボトムス調整|ボトム|bottom/i,
+      dart: /ダーツ|dart/i,
+      confirm: /確定|confirm/i,
+      output: /出力|印刷|output|print/i
+    };
+    var re = textMap[stage];
+    if (!re) return;
+    var btn = candidates.find(function (el) { return re.test((el.textContent || '').trim()); });
+    if (btn && !btn.disabled) {
+      try { btn.click(); } catch (e) {}
+    }
+  }
+
+  function takeSnapshot() {
+    var fields = {};
+    getFields().forEach(function (el, index) {
+      fields[fieldKey(el, index)] = readField(el);
+    });
+    return {
+      version: 1,
+      savedAt: Date.now(),
+      path: location.pathname,
+      stage: getActiveStage(),
+      fields: fields
+    };
+  }
+
+  function saveDraft() {
+    if (!isKataPath()) return;
+    try {
+      var snapshot = takeSnapshot();
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot));
+      showSavedToast();
+    } catch (e) {}
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveDraft, SAVE_DELAY);
+  }
+
+  function readDraft() {
+    try {
+      var raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      if (!data || !data.savedAt || Date.now() - data.savedAt > MAX_AGE_MS) return null;
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function hasUsefulDraft(data) {
+    if (!data || !data.fields) return false;
+    return Object.keys(data.fields).some(function (key) {
+      var v = data.fields[key];
+      return v && ((typeof v.value === 'string' && v.value.trim() !== '') || v.checked === true);
+    });
+  }
+
+  function restoreDraft(data) {
+    if (!data || !data.fields) return;
+    var fields = getFields();
+    var byKey = {};
+    fields.forEach(function (el, index) { byKey[fieldKey(el, index)] = el; });
+    Object.keys(data.fields).forEach(function (key) {
+      if (byKey[key]) writeField(byKey[key], data.fields[key]);
+    });
+    setTimeout(function () { clickStage(data.stage); }, 120);
+    setTimeout(saveDraft, 500);
+    showInlineNotice('前回の作業を復元しました。', 'restored');
+  }
+
+  function clearDraft() {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+      localStorage.setItem(DISMISSED_KEY, String(Date.now()));
+    } catch (e) {}
+  }
+
+  function ensureStyle() {
+    if (document.getElementById('katapataOfflineAutosaveStyle')) return;
+    var css = '' +
+      '#katapataOfflineRestore{position:fixed;left:50%;bottom:18px;z-index:9998;transform:translateX(-50%);max-width:min(92vw,520px);display:flex;align-items:center;gap:10px;padding:10px 11px;border:1px solid #e3d6c5;border-radius:16px;background:rgba(255,253,248,.96);box-shadow:0 14px 36px rgba(0,0,0,.14);color:#302b25;font-size:12px;font-weight:850;line-height:1.45;backdrop-filter:blur(6px);}\n' +
+      '#katapataOfflineRestore .koar-text{min-width:0;flex:1;}\n' +
+      '#katapataOfflineRestore .koar-actions{display:flex;gap:6px;flex:0 0 auto;}\n' +
+      '#katapataOfflineRestore button{height:30px;min-height:30px;border-radius:999px;padding:0 10px;font-size:11px;font-weight:950;}\n' +
+      '#katapataOfflineRestore .koar-sub{background:#f1eadf!important;color:#4f463d!important;border:1px solid #e0d3c2!important;}\n' +
+      '#katapataOfflineToast{position:fixed;right:12px;bottom:12px;z-index:9997;padding:6px 9px;border-radius:999px;background:rgba(23,23,23,.80);color:#fffdf8;font-size:10px;font-weight:900;opacity:0;transform:translateY(6px);transition:opacity .18s ease,transform .18s ease;pointer-events:none;}\n' +
+      '#katapataOfflineToast.show{opacity:1;transform:translateY(0);}\n' +
+      'body.katapata-offline-now::before{content:"オフライン中：入力内容はこの端末に一時保存されます";position:fixed;left:50%;top:8px;z-index:9997;transform:translateX(-50%);padding:5px 10px;border-radius:999px;background:#fff6d6;border:1px solid #e2bd46;color:#4d3b08;font-size:10px;font-weight:950;box-shadow:0 6px 18px rgba(0,0,0,.10);}\n' +
+      '@media (max-width:560px){#katapataOfflineRestore{left:10px;right:10px;bottom:12px;transform:none;align-items:flex-start;flex-direction:column;}#katapataOfflineRestore .koar-actions{width:100%;}#katapataOfflineRestore button{flex:1;}}\n';
+    var style = document.createElement('style');
+    style.id = 'katapataOfflineAutosaveStyle';
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  var toastTimer = 0;
+  function showSavedToast() {
+    var toast = document.getElementById('katapataOfflineToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'katapataOfflineToast';
+      toast.textContent = '自動保存済み';
+      document.body.appendChild(toast);
+    }
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 900);
+  }
+
+  function showInlineNotice(text, mode) {
+    ensureStyle();
+    var old = document.getElementById('katapataOfflineRestore');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    var box = document.createElement('div');
+    box.id = 'katapataOfflineRestore';
+    box.innerHTML = '<div class="koar-text"></div><div class="koar-actions"><button type="button" class="koar-sub">OK</button></div>';
+    box.querySelector('.koar-text').textContent = text;
+    box.querySelector('button').addEventListener('click', function () {
+      if (box.parentNode) box.parentNode.removeChild(box);
+    });
+    document.body.appendChild(box);
+    if (mode === 'restored') {
+      setTimeout(function () { if (box.parentNode) box.parentNode.removeChild(box); }, 2400);
+    }
+  }
+
+  function showRestorePrompt(data) {
+    if (!data || document.getElementById('katapataOfflineRestore')) return;
+    ensureStyle();
+    var dt = new Date(data.savedAt);
+    var stamp = (dt.getMonth() + 1) + '/' + dt.getDate() + ' ' + String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+    var box = document.createElement('div');
+    box.id = 'katapataOfflineRestore';
+    box.innerHTML = '<div class="koar-text">前回の作業データがあります。復元しますか？<br><small>保存：' + stamp + '</small></div><div class="koar-actions"><button type="button" data-restore>復元する</button><button type="button" class="koar-sub" data-clear>削除</button></div>';
+    box.querySelector('[data-restore]').addEventListener('click', function () {
+      restoreDraft(data);
+      if (box.parentNode) box.parentNode.removeChild(box);
+    });
+    box.querySelector('[data-clear]').addEventListener('click', function () {
+      clearDraft();
+      if (box.parentNode) box.parentNode.removeChild(box);
+    });
+    document.body.appendChild(box);
+  }
+
+  function updateOnlineState() {
+    document.body.classList.toggle('katapata-offline-now', navigator.onLine === false);
+  }
+
+  function installAutosave() {
+    if (!isKataPath()) return;
+    ensureStyle();
+    document.addEventListener('input', scheduleSave, true);
+    document.addEventListener('change', scheduleSave, true);
+    document.addEventListener('click', function () { setTimeout(scheduleSave, 250); }, true);
+    window.addEventListener('beforeunload', saveDraft);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') saveDraft();
+    });
+    window.addEventListener('online', updateOnlineState);
+    window.addEventListener('offline', updateOnlineState);
+    updateOnlineState();
+
+    setTimeout(function () {
+      var data = readDraft();
+      if (hasUsefulDraft(data)) showRestorePrompt(data);
+    }, 1400);
+
+    setTimeout(saveDraft, 2200);
+  }
+
+  registerServiceWorker();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', installAutosave);
+  } else {
+    installAutosave();
+  }
+})();
