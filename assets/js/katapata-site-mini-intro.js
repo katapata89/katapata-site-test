@@ -662,3 +662,248 @@
     observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-stage', 'class'] });
   }
 })();
+
+/*
+ * KATAPATA site-only tablet workflow bar + unit switch placement.
+ * - Tablet portrait/large touch screens: shows a small right-side workflow bar.
+ * - Measurement screen: moves existing cm/inch switcher close to the measurement inputs when found.
+ * This is intentionally defensive: it does not create new unit logic, it only relocates/proxies existing controls.
+ */
+(function () {
+  'use strict';
+
+  var STYLE_ID = 'katapataTabletNavUnitStyle';
+  var NAV_ID = 'katapataTabletStepbar';
+  var UNIT_BOX_ID = 'katapataMeasureUnitDock';
+  var LAST_STAGE = '';
+
+  function txt(el) {
+    return (el && (el.innerText || el.textContent) || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function injectStyle() {
+    if (document.getElementById(STYLE_ID)) return;
+    var style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = '' +
+      '/* Tablet-only right workflow bar. */\n' +
+      '#'+NAV_ID+'{display:none;}\n' +
+      '@media (min-width:700px) and (max-width:1180px) and (pointer:coarse){\n' +
+      '  body.katapata-tablet-workbar-ready{padding-right:54px !important;}\n' +
+      '  #'+NAV_ID+'{display:flex;position:fixed;z-index:8500;right:8px;top:50%;transform:translateY(-50%);flex-direction:column;gap:6px;padding:7px 5px;border:1px solid rgba(222,213,202,.92);border-radius:999px;background:rgba(255,253,248,.92);box-shadow:0 10px 32px rgba(52,43,31,.12);backdrop-filter:blur(10px);}\n' +
+      '  #'+NAV_ID+' button{appearance:none;border:1px solid #ded5ca;background:#fbf8f2;color:#51483f;width:38px;min-height:38px;border-radius:999px;padding:0;display:grid;place-items:center;font-size:10px;font-weight:950;line-height:1.05;letter-spacing:.01em;box-shadow:none;}\n' +
+      '  #'+NAV_ID+' button span{display:block;transform:scale(.92);}\n' +
+      '  #'+NAV_ID+' button.is-active{background:#171717 !important;color:#fffdf8 !important;border-color:#171717 !important;}\n' +
+      '  #'+NAV_ID+' button.is-missing{opacity:.36;pointer-events:none;}\n' +
+      '  #'+NAV_ID+' button:active{transform:translateY(1px);}\n' +
+      '}\n' +
+      '@media (max-width:699px),(min-width:1181px),(pointer:fine){body.katapata-tablet-workbar-ready{padding-right:0 !important;} #'+NAV_ID+'{display:none !important;}}\n' +
+      '/* Measurement unit switch dock. */\n' +
+      '#'+UNIT_BOX_ID+'{display:none;}\n' +
+      '.katapata-measure-unit-ready #'+UNIT_BOX_ID+'{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px;padding:8px 9px;border:1px solid #eadfce;border-radius:14px;background:#fffaf2;color:#3f3932;}\n' +
+      '#'+UNIT_BOX_ID+' .kmud-label{font-size:11px;font-weight:950;letter-spacing:.04em;color:#5d5247;white-space:nowrap;}\n' +
+      '#'+UNIT_BOX_ID+' .kmud-controls{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;}\n' +
+      '#'+UNIT_BOX_ID+' .kmud-controls button, #'+UNIT_BOX_ID+' .kmud-controls .stage, #'+UNIT_BOX_ID+' .kmud-controls label{min-height:30px !important;height:30px !important;padding:0 11px !important;border-radius:999px !important;font-size:11px !important;font-weight:950 !important;}\n' +
+      '#'+UNIT_BOX_ID+' .kmud-note{font-size:10px;font-weight:800;color:#7b6b5a;line-height:1.35;}\n' +
+      '@media (min-width:700px) and (max-width:1100px) and (orientation:portrait){#'+UNIT_BOX_ID+'{margin-bottom:10px;padding:9px 10px;} #'+UNIT_BOX_ID+' .kmud-label{font-size:12px;} #'+UNIT_BOX_ID+' .kmud-controls button, #'+UNIT_BOX_ID+' .kmud-controls .stage, #'+UNIT_BOX_ID+' .kmud-controls label{min-height:34px !important;height:34px !important;font-size:12px !important;}}\n';
+    document.head.appendChild(style);
+  }
+
+  function isTabletLike() {
+    return window.matchMedia && window.matchMedia('(min-width:700px) and (max-width:1180px) and (pointer:coarse)').matches;
+  }
+
+  function getMain() { return document.querySelector('.main[data-stage]'); }
+  function currentStage() {
+    var main = getMain();
+    if (main && main.getAttribute('data-stage')) return main.getAttribute('data-stage');
+    var active = document.querySelector('.appStagebar .stage.active, .stagebar .stage.active, .stage.active');
+    return txt(active);
+  }
+
+  var stageItems = [
+    { id: 'measure', label: '入力', en: 'Input', patterns: [/寸法入力/, /^入力$/, /measure/i, /input/i] },
+    { id: 'adjust', label: 'トップ', en: 'Tops', patterns: [/トップス調整/, /調整/, /tops/i, /adjust/i] },
+    { id: 'bottom', label: 'ボトム', en: 'Bottom', patterns: [/ボトムス調整/, /ボトムス/, /bottom/i, /skirt|pants/i] },
+    { id: 'dart', label: 'ダーツ', en: 'Darts', patterns: [/ダーツ/, /dart/i] },
+    { id: 'confirm', label: '確定', en: 'Confirm', patterns: [/確定/, /confirm/i] },
+    { id: 'output', label: '出力', en: 'Output', patterns: [/出力/, /印刷/, /output/i, /print/i] }
+  ];
+
+  function looksEnglish() {
+    var s = [(document.documentElement.getAttribute('lang') || ''), document.body ? txt(document.body) : '', location.href || ''].join(' ');
+    return /\blang=en\b|[?&]lang=en\b|\/en(?:\/|$)|\b(Input|Tops|Bottom|Darts|Confirm|Output)\b/i.test(s);
+  }
+
+  function findOriginalStage(item) {
+    var candidates = Array.prototype.slice.call(document.querySelectorAll('.appStagebar .stage, .stagebar .stage, .parttabs .stage, button.stage, button'));
+    candidates = candidates.filter(function (el) { return !el.closest('#'+NAV_ID); });
+    return candidates.find(function (el) {
+      var t = txt(el);
+      if (!t) return false;
+      return item.patterns.some(function (re) { return re.test(t); });
+    }) || null;
+  }
+
+  function goStage(item) {
+    var target = findOriginalStage(item);
+    if (target) {
+      target.click();
+      scheduleUpdate();
+      return;
+    }
+    // Fallback for builds that expose setStage.
+    if (typeof window.setStage === 'function') {
+      try {
+        var map = { measure: 'measure', adjust: 'adjust', dart: 'dart', confirm: 'confirm', output: 'output', bottom: 'bottom' };
+        window.setStage(map[item.id] || item.id);
+      } catch (e) {}
+    }
+    scheduleUpdate();
+  }
+
+  function ensureNav() {
+    injectStyle();
+    var nav = document.getElementById(NAV_ID);
+    if (!nav) {
+      nav = document.createElement('nav');
+      nav.id = NAV_ID;
+      nav.setAttribute('aria-label', 'KATAPATA workflow navigation');
+      document.body.appendChild(nav);
+      stageItems.forEach(function (item) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('data-katapata-step', item.id);
+        btn.innerHTML = '<span></span>';
+        btn.addEventListener('click', function () { goStage(item); });
+        nav.appendChild(btn);
+      });
+    }
+    document.body.classList.toggle('katapata-tablet-workbar-ready', isTabletLike());
+    return nav;
+  }
+
+  function updateNav() {
+    var nav = ensureNav();
+    var english = looksEnglish();
+    var cur = currentStage();
+    var curText = txt(document.querySelector('.appStagebar .stage.active, .stagebar .stage.active, .stage.active'));
+    Array.prototype.forEach.call(nav.querySelectorAll('button'), function (btn) {
+      var id = btn.getAttribute('data-katapata-step');
+      var item = stageItems.find(function (x) { return x.id === id; });
+      if (!item) return;
+      btn.querySelector('span').textContent = english ? item.en : item.label;
+      var orig = findOriginalStage(item);
+      btn.classList.toggle('is-missing', !orig && item.id === 'bottom');
+      var active = false;
+      if (cur === item.id) active = true;
+      if (!active && curText) active = item.patterns.some(function (re) { return re.test(curText); });
+      if (!active && item.id === 'bottom' && /bottom|ボトムス/i.test(cur + ' ' + curText)) active = true;
+      btn.classList.toggle('is-active', active);
+    });
+  }
+
+  function isLikelyUnitControl(el) {
+    if (!el || el.id === UNIT_BOX_ID || el.closest('#'+UNIT_BOX_ID)) return false;
+    var t = txt(el);
+    if (!t) return false;
+    var hasCm = /(^|\b|\s)cm($|\b|\s)|センチ|ｃｍ/i.test(t);
+    var hasIn = /inch|in\.|インチ|\bin\b/i.test(t);
+    if (!(hasCm && hasIn)) return false;
+    if (t.length > 90) return false;
+    var controls = el.querySelectorAll('button,input,label,select,[role="button"],.stage,.chip').length;
+    return controls >= 1;
+  }
+
+  function findUnitControl() {
+    var selectors = [
+      '[class*="unit"],[id*="unit"],[class*="Unit"],[id*="Unit"]',
+      '.chiprow,.parttabs,.stagebar,.panel,.toolHint'
+    ];
+    var seen = [];
+    selectors.forEach(function (sel) {
+      Array.prototype.forEach.call(document.querySelectorAll(sel), function (el) {
+        if (seen.indexOf(el) < 0) seen.push(el);
+      });
+    });
+    var found = seen.find(isLikelyUnitControl);
+    if (found) return found;
+    // Last resort: find small parent around cm/inch buttons.
+    var controls = Array.prototype.slice.call(document.querySelectorAll('button,label,.stage,.chip,select'));
+    for (var i = 0; i < controls.length; i++) {
+      var p = controls[i].parentElement;
+      for (var depth = 0; p && depth < 3; depth++, p = p.parentElement) {
+        if (isLikelyUnitControl(p)) return p;
+      }
+    }
+    return null;
+  }
+
+  function findMeasurePanel() {
+    var main = document.querySelector('.main[data-stage="measure"]');
+    if (!main) return null;
+    var panels = Array.prototype.slice.call(main.querySelectorAll('.side .panel, .measureEntryPanel, .panel'));
+    return panels.find(function (p) { return /バスト|ウエスト|背丈|ヒップ|袖丈|Bust|Waist|Back length|Hip|Sleeve/i.test(txt(p)); }) || panels[0] || null;
+  }
+
+  function ensureUnitDock() {
+    injectStyle();
+    var main = document.querySelector('.main[data-stage="measure"]');
+    if (!main) {
+      document.body.classList.remove('katapata-measure-unit-ready');
+      return;
+    }
+    var panel = findMeasurePanel();
+    if (!panel) return;
+
+    var dock = document.getElementById(UNIT_BOX_ID);
+    if (!dock) {
+      dock = document.createElement('div');
+      dock.id = UNIT_BOX_ID;
+      dock.innerHTML = '<div><div class="kmud-label">単位 / Unit</div><div class="kmud-note">入力前に選べます</div></div><div class="kmud-controls"></div>';
+    }
+    if (dock.parentElement !== panel) panel.insertBefore(dock, panel.firstChild);
+
+    var controlsBox = dock.querySelector('.kmud-controls');
+    var current = controlsBox.querySelector('[data-katapata-original-unit]');
+    if (!current || !document.body.contains(current)) {
+      var unit = findUnitControl();
+      if (unit && unit !== dock && !unit.closest('#'+UNIT_BOX_ID)) {
+        unit.setAttribute('data-katapata-original-unit', 'true');
+        controlsBox.innerHTML = '';
+        controlsBox.appendChild(unit);
+        document.body.classList.add('katapata-measure-unit-ready');
+      }
+    } else {
+      document.body.classList.add('katapata-measure-unit-ready');
+    }
+  }
+
+  function scheduleUpdate() {
+    window.setTimeout(function () { updateNav(); ensureUnitDock(); }, 0);
+    window.setTimeout(function () { updateNav(); ensureUnitDock(); }, 120);
+    window.setTimeout(function () { updateNav(); ensureUnitDock(); }, 420);
+  }
+
+  function start() {
+    injectStyle();
+    scheduleUpdate();
+    document.addEventListener('click', scheduleUpdate, true);
+    window.addEventListener('resize', scheduleUpdate);
+    window.addEventListener('orientationchange', scheduleUpdate);
+    if (window.MutationObserver) {
+      var obs = new MutationObserver(function () {
+        var st = currentStage();
+        if (st !== LAST_STAGE) LAST_STAGE = st;
+        scheduleUpdate();
+      });
+      obs.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-stage','class','style'] });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+})();
