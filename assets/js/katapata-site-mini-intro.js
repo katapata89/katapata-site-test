@@ -790,3 +790,239 @@
     injectMeasureScrollFix();
   }
 })();
+
+/*
+ * KATAPATA unit switch placement + always-visible measurement scrollbar.
+ * - Keeps JP/EN language switch in its original place.
+ * - Moves only the existing cm/inch control close to the measurement inputs.
+ * - Makes the measurement side panel scrollable on desktop/tablet so the create button is reachable.
+ */
+(function () {
+  'use strict';
+
+  function injectUnitAndScrollStyle() {
+    if (document.getElementById('katapataUnitNearMeasureStyle')) return;
+    var style = document.createElement('style');
+    style.id = 'katapataUnitNearMeasureStyle';
+    style.textContent = [
+      '/* Measurement panel: make the input area reliably scrollable on PC/tablet. */',
+      '@media (min-width: 700px) {',
+      '  .main[data-stage="measure"] { overflow: hidden !important; }',
+      '  .main[data-stage="measure"] .side {',
+      '    height: calc(100svh - 108px) !important;',
+      '    max-height: calc(100svh - 108px) !important;',
+      '    overflow-y: scroll !important;',
+      '    overflow-x: hidden !important;',
+      '    overscroll-behavior: contain !important;',
+      '    align-content: start !important;',
+      '    padding-right: 10px !important;',
+      '    scrollbar-gutter: stable !important;',
+      '    scrollbar-width: thin;',
+      '    scrollbar-color: #bfae85 #f4efe6;',
+      '  }',
+      '  .main[data-stage="measure"] .side::-webkit-scrollbar { width: 10px; }',
+      '  .main[data-stage="measure"] .side::-webkit-scrollbar-track { background: #f4efe6; border-radius: 999px; }',
+      '  .main[data-stage="measure"] .side::-webkit-scrollbar-thumb { background: #bfae85; border-radius: 999px; border: 2px solid #f4efe6; }',
+      '  .main[data-stage="measure"] .measureAction {',
+      '    position: sticky !important;',
+      '    bottom: 8px !important;',
+      '    z-index: 80 !important;',
+      '    min-height: 40px !important;',
+      '    box-shadow: 0 12px 26px rgba(23,23,23,.18) !important;',
+      '  }',
+      '}',
+      '',
+      '@media (min-width: 700px) and (max-height: 760px) {',
+      '  .main[data-stage="measure"] .side {',
+      '    height: calc(100svh - 96px) !important;',
+      '    max-height: calc(100svh - 96px) !important;',
+      '  }',
+      '  .main[data-stage="measure"] .panel { padding: 9px 10px !important; }',
+      '  .main[data-stage="measure"] .measureEntryTop { gap: 3px !important; }',
+      '  .main[data-stage="measure"] .measureFormGrid,',
+      '  .main[data-stage="measure"] .measureRequiredColumn,',
+      '  .main[data-stage="measure"] .optionalSleeveGrid { gap: 5px !important; }',
+      '  .main[data-stage="measure"] .optionalSleeveBox { padding: 6px !important; }',
+      '  .main[data-stage="measure"] .measureInputCard { padding: 5px 6px !important; }',
+      '  .main[data-stage="measure"] .measureInputBox input { height: 25px !important; }',
+      '}',
+      '',
+      '/* Unit switch inserted near measurement inputs. */',
+      '.katapata-local-unit-switch {',
+      '  display: flex !important;',
+      '  align-items: center !important;',
+      '  justify-content: space-between !important;',
+      '  gap: 8px !important;',
+      '  margin: 6px 0 7px !important;',
+      '  padding: 7px 8px !important;',
+      '  border: 1px solid #eadfce !important;',
+      '  border-radius: 13px !important;',
+      '  background: #fffaf2 !important;',
+      '}',
+      '.katapata-local-unit-switch .katapata-unit-label {',
+      '  flex: 0 0 auto !important;',
+      '  font-size: 10px !important;',
+      '  font-weight: 950 !important;',
+      '  color: #5d5247 !important;',
+      '  letter-spacing: .04em !important;',
+      '}',
+      '.katapata-local-unit-switch .katapata-unit-control {',
+      '  display: inline-flex !important;',
+      '  align-items: center !important;',
+      '  justify-content: flex-end !important;',
+      '  gap: 5px !important;',
+      '  min-width: 0 !important;',
+      '  flex: 1 1 auto !important;',
+      '}',
+      '.katapata-local-unit-switch button,',
+      '.katapata-local-unit-switch select,',
+      '.katapata-local-unit-switch label {',
+      '  min-height: 28px !important;',
+      '  height: 28px !important;',
+      '  border-radius: 999px !important;',
+      '  font-size: 10px !important;',
+      '  font-weight: 950 !important;',
+      '}',
+      '.katapata-local-unit-switch button { padding: 0 10px !important; }',
+      '@media (max-width: 699px) {',
+      '  .katapata-local-unit-switch { margin: 7px 0 !important; }',
+      '}',
+      '',
+      '/* Phones: use normal page scroll rather than nested scrolling. */',
+      '@media (max-width: 699px) {',
+      '  .main[data-stage="measure"] { overflow: visible !important; }',
+      '  .main[data-stage="measure"] .side {',
+      '    height: auto !important;',
+      '    max-height: none !important;',
+      '    overflow: visible !important;',
+      '    padding-right: 0 !important;',
+      '  }',
+      '  .main[data-stage="measure"] .measureAction { position: static !important; box-shadow: none !important; }',
+      '}'
+    ].join('\n');
+    document.head.appendChild(style);
+  }
+
+  function cleanText(s) {
+    return (s || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function hasLanguageText(el) {
+    var t = cleanText(el && el.innerText || el && el.textContent || '');
+    return /日本語|英語|English|Japanese|Language|言語/i.test(t);
+  }
+
+  function hasUnitText(el) {
+    var t = cleanText(el && el.innerText || el && el.textContent || '');
+    return /\bcm\b|\binch\b|インチ|単位|unit/i.test(t);
+  }
+
+  function isInsideMeasurementUnitLabel(el) {
+    return !!(el && el.closest && el.closest('.measureInputBox'));
+  }
+
+  function findExistingUnitControl() {
+    // Prefer an existing compact wrapper that includes both cm and inch, but not language switching.
+    var selectors = [
+      '[class*="unit" i]', '[id*="unit" i]', '[class*="measureUnit" i]', '[id*="measureUnit" i]',
+      'button', 'select', 'label', '[role="button"]'
+    ];
+    var all = Array.prototype.slice.call(document.querySelectorAll(selectors.join(',')));
+    var candidates = all.filter(function (el) {
+      if (!el || !el.parentNode) return false;
+      if (el.closest('.katapata-local-unit-switch')) return false;
+      if (isInsideMeasurementUnitLabel(el)) return false;
+      if (hasLanguageText(el)) return false;
+
+      if (el.tagName === 'SELECT') {
+        var optionText = Array.prototype.map.call(el.options || [], function (o) { return cleanText(o.textContent); }).join(' ');
+        return /\bcm\b/i.test(optionText) && /\binch\b/i.test(optionText);
+      }
+
+      var text = cleanText(el.innerText || el.textContent || el.value || el.getAttribute('aria-label') || el.getAttribute('title') || '');
+      return /\bcm\b/i.test(text) || /\binch\b/i.test(text) || /単位|unit/i.test(text);
+    });
+
+    if (!candidates.length) return null;
+
+    // If there are separate cm/inch buttons, move their nearest shared parent.
+    var cm = candidates.find(function (el) { return /\bcm\b/i.test(cleanText(el.innerText || el.textContent || el.value || el.getAttribute('aria-label') || '')); });
+    var inch = candidates.find(function (el) { return /\binch\b/i.test(cleanText(el.innerText || el.textContent || el.value || el.getAttribute('aria-label') || '')); });
+    if (cm && inch) {
+      var p = cm;
+      while (p && p !== document.body) {
+        if (p.contains(inch) && hasUnitText(p) && !hasLanguageText(p) && !p.closest('.measureInputBox')) {
+          var pt = cleanText(p.innerText || p.textContent || '');
+          // Avoid moving huge panels/navs: unit control text should be compact.
+          if (pt.length <= 80 || p.querySelectorAll('button,select,label,[role="button"]').length <= 4) return p;
+        }
+        p = p.parentElement;
+      }
+    }
+
+    // Otherwise move the candidate itself or a compact parent if it looks like a control group.
+    var first = candidates[0];
+    var parent = first.parentElement;
+    if (parent && parent !== document.body && hasUnitText(parent) && !hasLanguageText(parent) && cleanText(parent.innerText || parent.textContent || '').length <= 80) {
+      return parent;
+    }
+    return first;
+  }
+
+  function insertUnitSwitchNearMeasure() {
+    var main = document.querySelector('.main[data-stage="measure"]');
+    if (!main) return;
+    var targetTop = main.querySelector('.measureEntryTop') || main.querySelector('.measureEntryPanel') || main.querySelector('.measureFormGrid') || main.querySelector('.side .panel');
+    if (!targetTop) return;
+
+    var control = findExistingUnitControl();
+    if (!control) return;
+    if (control.closest('.katapata-local-unit-switch')) return;
+
+    var existing = main.querySelector('.katapata-local-unit-switch');
+    if (!existing) {
+      existing = document.createElement('div');
+      existing.className = 'katapata-local-unit-switch';
+      var label = document.createElement('span');
+      label.className = 'katapata-unit-label';
+      var isEnglish = /\b(Size|Bust|Waist|Sleeve|Unit)\b/i.test(document.body.innerText || '') && !/寸法|原型|袖丈/.test(document.body.innerText || '');
+      label.textContent = isEnglish ? 'Unit' : '単位';
+      var holder = document.createElement('div');
+      holder.className = 'katapata-unit-control';
+      existing.appendChild(label);
+      existing.appendChild(holder);
+
+      // Put it between the title/lead and the input fields when possible.
+      var form = main.querySelector('.measureFormGrid') || main.querySelector('.measureCompactLayout');
+      if (form && form.parentNode) form.parentNode.insertBefore(existing, form);
+      else targetTop.appendChild(existing);
+    }
+
+    var holderEl = existing.querySelector('.katapata-unit-control') || existing;
+    control.setAttribute('data-katapata-unit-moved', '1');
+    holderEl.appendChild(control);
+  }
+
+  function scheduleUnitPlacement() {
+    window.setTimeout(insertUnitSwitchNearMeasure, 0);
+    window.setTimeout(insertUnitSwitchNearMeasure, 120);
+    window.setTimeout(insertUnitSwitchNearMeasure, 420);
+    window.setTimeout(insertUnitSwitchNearMeasure, 1000);
+  }
+
+  function boot() {
+    injectUnitAndScrollStyle();
+    scheduleUnitPlacement();
+    document.addEventListener('click', function () { window.setTimeout(scheduleUnitPlacement, 60); }, true);
+    if (window.MutationObserver) {
+      var obs = new MutationObserver(function () { scheduleUnitPlacement(); });
+      obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-stage', 'class'] });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
+})();
