@@ -682,12 +682,13 @@
 })();
 
 
+
 /*
- * KATAPATA measurement panel refinement.
- * - Places only the cm/inch unit control near the measurement inputs, in a compact row.
- * - Keeps the JP/EN language switch untouched.
- * - Makes the measurement input card itself scrollable on PC/tablet.
- * - Moves the create-sloper button just under the input fields so it is easy to find.
+ * KATAPATA measurement panel refinement - safe proxy version.
+ * - Does NOT move the original cm/inch switch, because the original control has layout-specific CSS.
+ * - Adds a small proxy cm/inch switch near the measurement inputs.
+ * - Keeps JP/EN in the original place.
+ * - Keeps the measurement panel scrollable on PC/tablet and keeps the create button visible.
  */
 (function () {
   'use strict';
@@ -697,177 +698,102 @@
     var style = document.createElement('style');
     style.id = 'katapataMeasurePanelRefineStyle';
     style.textContent = [
-      '/* Keep the measurement side compact and scrollable on PC/tablet. */',
       '@media (min-width: 700px) {',
       '  .main[data-stage="measure"] { overflow: hidden !important; }',
-      '  .main[data-stage="measure"] .side {',
-      '    height: auto !important;',
-      '    max-height: none !important;',
-      '    overflow: visible !important;',
-      '    padding-right: 0 !important;',
-      '  }',
+      '  .main[data-stage="measure"] .side { height: auto !important; max-height: none !important; overflow: visible !important; padding-right: 0 !important; }',
       '  .main[data-stage="measure"] .side > .panel:first-child {',
-      '    max-height: calc(100svh - 120px) !important;',
-      '    overflow-y: scroll !important;',
+      '    max-height: calc(100svh - 112px) !important;',
+      '    overflow-y: auto !important;',
       '    overflow-x: hidden !important;',
       '    overscroll-behavior: contain !important;',
-      '    padding-right: 14px !important;',
+      '    padding-right: 12px !important;',
       '    scrollbar-gutter: stable both-edges !important;',
       '    scrollbar-width: auto !important;',
-      '    scrollbar-color: #7f7467 #eee7dd !important;',
+      '    scrollbar-color: #8a7e70 #eee7dd !important;',
       '  }',
-      '  .main[data-stage="measure"] .side > .panel:first-child::-webkit-scrollbar { width: 12px !important; }',
+      '  .main[data-stage="measure"] .side > .panel:first-child::-webkit-scrollbar { width: 10px !important; }',
       '  .main[data-stage="measure"] .side > .panel:first-child::-webkit-scrollbar-track { background: #eee7dd !important; border-radius: 999px !important; }',
-      '  .main[data-stage="measure"] .side > .panel:first-child::-webkit-scrollbar-thumb { background: #7f7467 !important; border-radius: 999px !important; border: 3px solid #eee7dd !important; }',
+      '  .main[data-stage="measure"] .side > .panel:first-child::-webkit-scrollbar-thumb { background: #8a7e70 !important; border-radius: 999px !important; border: 2px solid #eee7dd !important; }',
       '  .main[data-stage="measure"] .measureAction {',
       '    display: block !important;',
       '    width: 100% !important;',
-      '    min-height: 38px !important;',
-      '    height: 38px !important;',
-      '    margin: 7px 0 8px !important;',
+      '    min-height: 40px !important;',
+      '    height: 40px !important;',
+      '    margin: 8px 0 10px !important;',
       '    position: sticky !important;',
       '    bottom: 6px !important;',
-      '    z-index: 50 !important;',
-      '    box-shadow: 0 10px 20px rgba(23,23,23,.14) !important;',
+      '    z-index: 60 !important;',
+      '    box-shadow: 0 10px 20px rgba(23,23,23,.16) !important;',
       '  }',
       '}',
       '@media (min-width: 700px) and (max-height: 760px) {',
       '  .main[data-stage="measure"] { gap: 8px !important; padding: 8px !important; }',
-      '  .main[data-stage="measure"] .side > .panel:first-child { max-height: calc(100svh - 96px) !important; }',
-      '  .main[data-stage="measure"] .side > .panel:first-child { padding: 8px 12px 8px 9px !important; }',
-      '  .main[data-stage="measure"] .measureEntryPanel { gap: 4px !important; }',
+      '  .main[data-stage="measure"] .side > .panel:first-child { max-height: calc(100svh - 92px) !important; padding: 8px 10px 8px 9px !important; }',
+      '  .main[data-stage="measure"] .measureEntryPanel { gap: 5px !important; }',
       '  .main[data-stage="measure"] .measureEntryTop { gap: 2px !important; }',
       '  .main[data-stage="measure"] .measureEntryTitle { font-size: 12.5px !important; }',
       '  .main[data-stage="measure"] .measureEntryLead { font-size: 8.5px !important; line-height: 1.25 !important; }',
       '  .main[data-stage="measure"] .measureFormGrid,',
       '  .main[data-stage="measure"] .measureRequiredColumn,',
-      '  .main[data-stage="measure"] .optionalSleeveGrid { gap: 4px !important; }',
-      '  .main[data-stage="measure"] .measureInputCard { padding: 4px 6px !important; border-radius: 10px !important; }',
+      '  .main[data-stage="measure"] .optionalSleeveGrid { gap: 5px !important; }',
+      '  .main[data-stage="measure"] .measureInputCard { padding: 5px 7px !important; border-radius: 11px !important; }',
       '  .main[data-stage="measure"] .measureInputLabel strong { font-size: 9px !important; }',
       '  .main[data-stage="measure"] .measureInputHint { font-size: 7px !important; }',
-      '  .main[data-stage="measure"] .measureInputBox input { height: 23px !important; font-size: 13px !important; }',
-      '  .main[data-stage="measure"] .optionalSleeveBox { padding: 5px 6px !important; border-radius: 13px !important; }',
-      '  .main[data-stage="measure"] .measureAction { min-height: 34px !important; height: 34px !important; font-size: 10.5px !important; }',
+      '  .main[data-stage="measure"] .measureInputBox input { height: 25px !important; font-size: 13px !important; }',
+      '  .main[data-stage="measure"] .optionalSleeveBox { padding: 6px 7px !important; border-radius: 13px !important; }',
       '}',
-      '/* Compact cm/inch switch near the measurement form. */',
-      '.katapata-compact-unit-row {',
-      '  display: inline-flex !important;',
+      '.katapata-unit-proxy-row {',
+      '  display: flex !important;',
       '  align-items: center !important;',
-      '  gap: 5px !important;',
+      '  gap: 7px !important;',
       '  width: 100% !important;',
-      '  max-width: 100% !important;',
-      '  margin: 3px 0 4px !important;',
-      '  padding: 3px 5px !important;',
+      '  box-sizing: border-box !important;',
+      '  margin: 6px 0 8px !important;',
+      '  padding: 6px 8px !important;',
       '  border: 1px solid #eadfce !important;',
-      '  border-radius: 999px !important;',
+      '  border-radius: 14px !important;',
       '  background: #fffaf2 !important;',
-      '  line-height: 1 !important;',
       '}',
-      '.katapata-compact-unit-row .katapata-unit-label {',
-      '  display: inline-block !important;',
-      '  margin: 0 2px 0 3px !important;',
-      '  font-size: 9px !important;',
+      '.katapata-unit-proxy-label {',
+      '  flex: 0 0 auto !important;',
+      '  font-size: 10px !important;',
+      '  line-height: 1 !important;',
       '  font-weight: 900 !important;',
       '  color: #6a5d50 !important;',
       '}',
-      '.katapata-compact-unit-row .katapata-unit-control {',
-      '  display: inline-flex !important;',
-      '  align-items: center !important;',
-      '  gap: 3px !important;',
-      '}',
-      '.katapata-compact-unit-row button,',
-      '.katapata-compact-unit-row label,',
-      '.katapata-compact-unit-row select,',
-      '.katapata-compact-unit-row [role="button"] {',
-      '  min-height: 22px !important;',
-      '  height: 22px !important;',
+      '.katapata-unit-proxy-buttons { display: inline-flex !important; gap: 4px !important; align-items: center !important; }',
+      '.katapata-unit-proxy-btn {',
+      '  appearance: none !important;',
+      '  border: 1px solid #171717 !important;',
+      '  background: #fffdf8 !important;',
+      '  color: #171717 !important;',
+      '  min-width: 44px !important;',
+      '  height: 25px !important;',
+      '  min-height: 25px !important;',
       '  border-radius: 999px !important;',
-      '  padding: 0 8px !important;',
-      '  font-size: 9px !important;',
+      '  padding: 0 10px !important;',
+      '  font-size: 10px !important;',
+      '  line-height: 25px !important;',
       '  font-weight: 950 !important;',
-      '  line-height: 22px !important;',
+      '  cursor: pointer !important;',
       '}',
-
-      '/* Hard reset for the inserted unit row: keep it as its own full-width line. */',
-      '.main[data-stage="measure"] .katapata-compact-unit-row {',
-      '  grid-column: 1 / -1 !important;',
-      '  width: 100% !important;',
-      '  min-width: 0 !important;',
-      '  max-width: 100% !important;',
-      '  box-sizing: border-box !important;',
-      '  display: flex !important;',
-      '  flex-wrap: wrap !important;',
-      '  align-items: center !important;',
-      '  justify-content: flex-start !important;',
-      '  gap: 6px !important;',
-      '  margin: 4px 0 7px !important;',
-      '  padding: 5px 7px !important;',
-      '  border-radius: 14px !important;',
+      '.katapata-unit-proxy-btn.is-active { background: #171717 !important; color: #fffdf8 !important; }',
+      '[data-katapata-unit-source="1"] {',
+      '  position: absolute !important;',
+      '  left: -9999px !important;',
+      '  top: auto !important;',
+      '  width: 1px !important;',
+      '  height: 1px !important;',
+      '  overflow: hidden !important;',
+      '  opacity: 0 !important;',
+      '  pointer-events: none !important;',
       '}',
-      '.main[data-stage="measure"] .katapata-compact-unit-row .katapata-unit-label {',
-      '  flex: 0 0 auto !important;',
-      '  width: auto !important;',
-      '  margin: 0 2px 0 0 !important;',
-      '  font-size: 9px !important;',
-      '  line-height: 1 !important;',
-      '}',
-      '.main[data-stage="measure"] .katapata-compact-unit-row .katapata-unit-control {',
-      '  flex: 0 0 auto !important;',
-      '  width: auto !important;',
-      '  min-width: 0 !important;',
-      '  display: inline-flex !important;',
-      '  align-items: center !important;',
-      '  gap: 4px !important;',
-      '}',
-      '.main[data-stage="measure"] .katapata-compact-unit-row [data-katapata-unit-moved="1"] {',
-      '  position: static !important;',
-      '  inset: auto !important;',
-      '  transform: none !important;',
-      '  width: auto !important;',
-      '  max-width: none !important;',
-      '  margin: 0 !important;',
-      '  padding: 0 !important;',
-      '  display: inline-flex !important;',
-      '  align-items: center !important;',
-      '  gap: 4px !important;',
-      '}',
-      '.main[data-stage="measure"] .katapata-compact-unit-row [data-katapata-unit-moved="1"] > * {',
-      '  position: static !important;',
-      '  transform: none !important;',
-      '}',
-      '.main[data-stage="measure"] .katapata-compact-unit-row button,',
-      '.main[data-stage="measure"] .katapata-compact-unit-row label,',
-      '.main[data-stage="measure"] .katapata-compact-unit-row select,',
-      '.main[data-stage="measure"] .katapata-compact-unit-row [role="button"] {',
-      '  flex: 0 0 auto !important;',
-      '  min-width: 38px !important;',
-      '  min-height: 22px !important;',
-      '  height: 22px !important;',
-      '  padding: 0 8px !important;',
-      '  font-size: 9px !important;',
-      '  line-height: 22px !important;',
-      '}',
-      '.main[data-stage="measure"] .measureCompactLayout,',
-      '.main[data-stage="measure"] .measureFormGrid,',
-      '.main[data-stage="measure"] .measureRequiredColumn,',
-      '.main[data-stage="measure"] .optionalSleeveColumn {',
-      '  min-width: 0 !important;',
-      '  width: 100% !important;',
-      '}',
-      '.main[data-stage="measure"] .measureCompactLayout {',
-      '  grid-column: 1 / -1 !important;',
-      '  clear: both !important;',
-      '}',
-      '/* Phones: avoid nested scrolling unless the browser needs it. */',
       '@media (max-width: 699px) {',
       '  .main[data-stage="measure"] { overflow: visible !important; }',
       '  .main[data-stage="measure"] .side,',
-      '  .main[data-stage="measure"] .side > .panel:first-child {',
-      '    max-height: none !important;',
-      '    overflow: visible !important;',
-      '    padding-right: initial !important;',
-      '  }',
+      '  .main[data-stage="measure"] .side > .panel:first-child { max-height: none !important; overflow: visible !important; padding-right: initial !important; }',
       '  .main[data-stage="measure"] .measureAction { position: static !important; box-shadow: none !important; }',
+      '  .katapata-unit-proxy-row { margin: 7px 0 8px !important; }',
       '}',
       ''
     ].join('\n');
@@ -878,126 +804,168 @@
     return (s || '').replace(/\s+/g, ' ').trim();
   }
 
-  function hasLanguageText(el) {
-    var t = cleanText(el && (el.innerText || el.textContent) || '');
-    return /日本語|英語|English|Japanese|Language|言語/i.test(t);
-  }
-
-  function elementText(el) {
+  function textOf(el) {
     return cleanText((el && (el.innerText || el.textContent || el.value || el.getAttribute('aria-label') || el.getAttribute('title'))) || '');
   }
 
-  function isMeasurementUnitSuffix(el) {
-    return !!(el && el.closest && el.closest('.measureInputBox'));
+  function hasLanguageText(el) {
+    var t = textOf(el);
+    return /日本語|英語|English|Japanese|Language|言語/i.test(t);
   }
 
-  function findUnitControl() {
-    var selectors = [
-      '[class*="unit" i]', '[id*="unit" i]', '[class*="measureUnit" i]', '[id*="measureUnit" i]',
-      'button', 'select', 'label', '[role="button"]'
-    ];
-    var all = Array.prototype.slice.call(document.querySelectorAll(selectors.join(',')));
-    var candidates = all.filter(function (el) {
-      if (!el || !el.parentNode) return false;
-      if (el.closest('.katapata-compact-unit-row')) return false;
-      if (isMeasurementUnitSuffix(el)) return false;
-      if (hasLanguageText(el)) return false;
-      if (el.tagName === 'SELECT') {
-        var optionText = Array.prototype.map.call(el.options || [], function (o) { return cleanText(o.textContent); }).join(' ');
-        return /\bcm\b/i.test(optionText) && /\binch\b/i.test(optionText);
-      }
-      var text = elementText(el);
-      return /\bcm\b/i.test(text) || /\binch\b/i.test(text) || /^単位$|^unit$/i.test(text);
-    });
-    if (!candidates.length) return null;
-
-    var cm = candidates.find(function (el) { return /\bcm\b/i.test(elementText(el)); });
-    var inch = candidates.find(function (el) { return /\binch\b/i.test(elementText(el)); });
-    if (cm && inch) {
-      var p = cm;
-      while (p && p !== document.body) {
-        if (p.contains(inch) && !hasLanguageText(p) && !p.closest('.measureInputBox')) {
-          var controls = p.querySelectorAll('button,select,label,[role="button"]').length;
-          var txt = cleanText(p.innerText || p.textContent || '');
-          if (controls <= 4 && txt.length <= 80) return p;
-        }
-        p = p.parentElement;
-      }
-    }
-
-    var first = candidates[0];
-    var parent = first.parentElement;
-    if (parent && parent !== document.body && !hasLanguageText(parent)) {
-      var pt = cleanText(parent.innerText || parent.textContent || '');
-      var pc = parent.querySelectorAll('button,select,label,[role="button"]').length;
-      if (pc <= 4 && pt.length <= 80) return parent;
-    }
-    return first;
+  function isInputSuffix(el) {
+    return !!(el && el.closest && el.closest('.measureInputBox'));
   }
 
   function getMeasureMain() {
     return document.querySelector('.main[data-stage="measure"]');
   }
 
-  function placeUnitSwitch() {
-    var main = getMeasureMain();
-    if (!main) return;
-    var control = findUnitControl();
-    if (!control) return;
-    if (control.closest('.katapata-compact-unit-row')) return;
-
-    var row = main.querySelector('.katapata-compact-unit-row');
-    if (!row) {
-      row = document.createElement('div');
-      row.className = 'katapata-compact-unit-row';
-      var label = document.createElement('span');
-      label.className = 'katapata-unit-label';
-      var isEnglish = /\b(Size|Bust|Waist|Sleeve|Unit)\b/i.test(document.body.innerText || '') && !/寸法|原型|袖丈/.test(document.body.innerText || '');
-      label.textContent = isEnglish ? 'Unit' : '単位';
-      var holder = document.createElement('div');
-      holder.className = 'katapata-unit-control';
-      row.appendChild(label);
-      row.appendChild(holder);
-
-      // Put the switch just above the required measurements, not as a tall full-width block.
-      var compactLayout = main.querySelector('.measureCompactLayout');
-      var formGrid = main.querySelector('.measureFormGrid');
-      var entryPanel = main.querySelector('.measureEntryPanel');
-      if (compactLayout && compactLayout.parentNode) {
-        compactLayout.parentNode.insertBefore(row, compactLayout);
-      } else if (formGrid && formGrid.parentNode) {
-        formGrid.parentNode.insertBefore(row, formGrid);
-      } else if (entryPanel) {
-        entryPanel.appendChild(row);
+  function findUnitGroup() {
+    var all = Array.prototype.slice.call(document.querySelectorAll('button,select,label,[role="button"],[class*="unit" i],[id*="unit" i]'));
+    var candidates = all.filter(function (el) {
+      if (!el || !el.parentNode) return false;
+      if (el.closest('.katapata-unit-proxy-row')) return false;
+      if (isInputSuffix(el)) return false;
+      if (hasLanguageText(el)) return false;
+      if (el.tagName === 'SELECT') {
+        var opts = Array.prototype.map.call(el.options || [], function (o) { return textOf(o); }).join(' ');
+        return /\bcm\b/i.test(opts) && /\binch\b/i.test(opts);
       }
-    }
+      var t = textOf(el);
+      return /\bcm\b/i.test(t) || /\binch\b/i.test(t) || /^単位$|^unit$/i.test(t);
+    });
+    var cm = candidates.find(function (el) { return /\bcm\b/i.test(textOf(el)); });
+    var inch = candidates.find(function (el) { return /\binch\b/i.test(textOf(el)); });
+    if (!cm || !inch) return null;
 
-    var holderEl = row.querySelector('.katapata-unit-control') || row;
-    control.setAttribute('data-katapata-unit-moved', '1');
-    holderEl.appendChild(control);
+    var p = cm;
+    while (p && p !== document.body) {
+      if (p.contains(inch) && !hasLanguageText(p) && !p.closest('.measureInputBox') && !p.closest('.katapata-unit-proxy-row')) {
+        var txt = textOf(p);
+        var controls = p.querySelectorAll('button,select,label,[role="button"]').length;
+        if (controls <= 5 && txt.length <= 120) return p;
+      }
+      p = p.parentElement;
+    }
+    return cm.parentElement || cm;
   }
 
-  function moveCreateButtonNearInputs() {
+  function findOriginalUnitButton(kind) {
+    var group = findUnitGroup();
+    if (!group) return null;
+    var re = kind === 'inch' ? /\binch\b/i : /\bcm\b/i;
+    if (group.tagName === 'SELECT') return group;
+    var controls = Array.prototype.slice.call(group.querySelectorAll('button,label,[role="button"],input,select'));
+    return controls.find(function (el) { return re.test(textOf(el) || el.value || el.id || el.name || ''); }) || null;
+  }
+
+  function detectUnit() {
+    var group = findUnitGroup();
+    if (!group) return 'cm';
+    if (group.tagName === 'SELECT') return /inch/i.test(group.value || '') ? 'inch' : 'cm';
+    var controls = Array.prototype.slice.call(group.querySelectorAll('button,label,[role="button"],input'));
+    var active = controls.find(function (el) {
+      var state = (el.getAttribute('aria-pressed') || el.getAttribute('aria-selected') || '').toLowerCase();
+      var cls = el.className || '';
+      var checked = !!el.checked;
+      return state === 'true' || checked || /active|selected|current|is-on|on\b/i.test(cls);
+    });
+    if (active && /inch/i.test(textOf(active) || active.value || '')) return 'inch';
+    if (active && /\bcm\b/i.test(textOf(active) || active.value || '')) return 'cm';
+
+    // Fallback: look at visible unit suffixes in inputs.
+    var suffix = Array.prototype.slice.call(document.querySelectorAll('.measureInputBox .unit')).find(function (el) {
+      return /inch|cm/i.test(textOf(el));
+    });
+    return suffix && /inch/i.test(textOf(suffix)) ? 'inch' : 'cm';
+  }
+
+  function clickOriginalUnit(kind) {
+    var group = findUnitGroup();
+    if (!group) return;
+    if (group.tagName === 'SELECT') {
+      var option = Array.prototype.slice.call(group.options || []).find(function (o) { return new RegExp(kind, 'i').test(textOf(o) || o.value || ''); });
+      if (option) {
+        group.value = option.value;
+        group.dispatchEvent(new Event('input', { bubbles: true }));
+        group.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return;
+    }
+    var btn = findOriginalUnitButton(kind);
+    if (btn) {
+      if (btn.tagName === 'INPUT') {
+        btn.checked = true;
+        btn.dispatchEvent(new Event('input', { bubbles: true }));
+        btn.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (typeof btn.click === 'function') {
+        btn.click();
+      }
+    }
+  }
+
+  function updateProxyActive(row) {
+    if (!row) return;
+    var unit = detectUnit();
+    row.querySelectorAll('.katapata-unit-proxy-btn').forEach(function (btn) {
+      var on = btn.getAttribute('data-unit') === unit;
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
+  function ensureUnitProxy() {
+    var main = getMeasureMain();
+    if (!main) return;
+    var group = findUnitGroup();
+    if (!group) return;
+
+    // Hide the original unit group without moving it. This prevents layout breakage.
+    group.setAttribute('data-katapata-unit-source', '1');
+
+    var row = main.querySelector('.katapata-unit-proxy-row');
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'katapata-unit-proxy-row';
+      var isEnglish = /\b(Size|Bust|Waist|Sleeve|Unit)\b/i.test(document.body.innerText || '') && !/寸法|原型|袖丈/.test(document.body.innerText || '');
+      row.innerHTML = '<span class="katapata-unit-proxy-label">' + (isEnglish ? 'Unit' : '単位') + '</span>' +
+        '<span class="katapata-unit-proxy-buttons">' +
+        '<button type="button" class="katapata-unit-proxy-btn" data-unit="cm">cm</button>' +
+        '<button type="button" class="katapata-unit-proxy-btn" data-unit="inch">inch</button>' +
+        '</span>';
+      row.addEventListener('click', function (ev) {
+        var btn = ev.target.closest && ev.target.closest('.katapata-unit-proxy-btn');
+        if (!btn) return;
+        ev.preventDefault();
+        clickOriginalUnit(btn.getAttribute('data-unit'));
+        window.setTimeout(function () { updateProxyActive(row); }, 30);
+        window.setTimeout(function () { updateProxyActive(row); }, 180);
+      });
+
+      var formGrid = main.querySelector('.measureFormGrid');
+      var compactLayout = main.querySelector('.measureCompactLayout');
+      var entryPanel = main.querySelector('.measureEntryPanel');
+      var anchor = formGrid || compactLayout;
+      if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(row, anchor);
+      else if (entryPanel) entryPanel.appendChild(row);
+    }
+    updateProxyActive(row);
+  }
+
+  function ensureCreateButtonVisibility() {
     var main = getMeasureMain();
     if (!main) return;
     var action = main.querySelector('.measureAction');
     if (!action) return;
-    var compactLayout = main.querySelector('.measureCompactLayout');
-    var formGrid = main.querySelector('.measureFormGrid');
-    var entryPanel = main.querySelector('.measureEntryPanel');
-    var anchor = compactLayout || formGrid;
-    if (!anchor || !entryPanel) return;
-
-    // Keep it directly after the input area and before save-data blocks.
-    if (anchor.nextSibling !== action) {
-      anchor.parentNode.insertBefore(action, anchor.nextSibling);
-    }
+    action.style.display = 'block';
+    action.style.visibility = 'visible';
   }
 
   function refineMeasurePanel() {
     injectMeasureRefineStyle();
-    placeUnitSwitch();
-    moveCreateButtonNearInputs();
+    ensureUnitProxy();
+    ensureCreateButtonVisibility();
   }
 
   function scheduleRefine() {
@@ -1010,9 +978,11 @@
   function boot() {
     scheduleRefine();
     document.addEventListener('click', function () { window.setTimeout(scheduleRefine, 80); }, true);
+    document.addEventListener('input', function () { window.setTimeout(scheduleRefine, 60); }, true);
+    document.addEventListener('change', function () { window.setTimeout(scheduleRefine, 60); }, true);
     if (window.MutationObserver) {
       var obs = new MutationObserver(function () { scheduleRefine(); });
-      obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-stage', 'class'] });
+      obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-stage', 'class', 'aria-pressed', 'aria-selected'] });
     }
   }
 
