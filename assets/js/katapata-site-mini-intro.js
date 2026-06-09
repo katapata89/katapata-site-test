@@ -681,224 +681,124 @@
   }
 })();
 
-/* KATAPATA measure panel scroll fix for small-height PCs/tablets.
- * Keeps the create button visible by making only the measurement panel/side scrollable.
- */
-(function () {
-  'use strict';
-  function injectMeasureScrollFix() {
-    if (document.getElementById('katapataMeasureScrollFixStyle')) return;
-    var style = document.createElement('style');
-    style.id = 'katapataMeasureScrollFixStyle';
-    style.textContent = [
-      '/* Small-height desktop / tablet: avoid the measurement form being cut off. */',
-      '@media (min-width: 700px) and (max-height: 860px) {',
-      '  .main[data-stage="measure"] {',
-      '    overflow: hidden !important;',
-      '  }',
-      '  .main[data-stage="measure"] .side {',
-      '    max-height: calc(100svh - 112px) !important;',
-      '    overflow-y: auto !important;',
-      '    overflow-x: hidden !important;',
-      '    overscroll-behavior: contain !important;',
-      '    align-content: start !important;',
-      '    padding-right: 8px !important;',
-      '    scrollbar-width: thin;',
-      '    scrollbar-color: #b9aa93 #f4efe6;',
-      '  }',
-      '  .main[data-stage="measure"] .side::-webkit-scrollbar { width: 8px; }',
-      '  .main[data-stage="measure"] .side::-webkit-scrollbar-track { background: #f4efe6; border-radius: 999px; }',
-      '  .main[data-stage="measure"] .side::-webkit-scrollbar-thumb { background: #b9aa93; border-radius: 999px; }',
-      '  .main[data-stage="measure"] .measureAction {',
-      '    position: sticky !important;',
-      '    bottom: 6px !important;',
-      '    z-index: 30 !important;',
-      '    box-shadow: 0 10px 22px rgba(23,23,23,.16) !important;',
-      '  }',
-      '  .main[data-stage="measure"] .measureMiniNote {',
-      '    margin-bottom: 8px !important;',
-      '  }',
-      '}',
-      '',
-      '/* Very small-height laptops: compact the measurement side a little more. */',
-      '@media (min-width: 860px) and (max-height: 720px) {',
-      '  .main[data-stage="measure"] {',
-      '    grid-template-columns: minmax(0,1fr) minmax(300px,340px) !important;',
-      '    gap: 10px !important;',
-      '    padding: 10px !important;',
-      '  }',
-      '  .main[data-stage="measure"] .canvas {',
-      '    height: calc(100svh - 104px) !important;',
-      '    min-height: 360px !important;',
-      '  }',
-      '  .main[data-stage="measure"] .side {',
-      '    max-height: calc(100svh - 104px) !important;',
-      '  }',
-      '  .main[data-stage="measure"] .panel {',
-      '    padding: 9px 10px !important;',
-      '    border-radius: 14px !important;',
-      '  }',
-      '  .main[data-stage="measure"] .measureEntryPanel { gap: 5px !important; }',
-      '  .main[data-stage="measure"] .measureFormGrid,',
-      '  .main[data-stage="measure"] .measureRequiredColumn,',
-      '  .main[data-stage="measure"] .optionalSleeveGrid {',
-      '    gap: 5px !important;',
-      '  }',
-      '  .main[data-stage="measure"] .measureInputCard {',
-      '    padding: 5px 6px !important;',
-      '    border-radius: 10px !important;',
-      '  }',
-      '  .main[data-stage="measure"] .measureInputBox input {',
-      '    height: 24px !important;',
-      '    font-size: 13px !important;',
-      '  }',
-      '  .main[data-stage="measure"] .measureAction {',
-      '    min-height: 34px !important;',
-      '    height: 34px !important;',
-      '    font-size: 11px !important;',
-      '  }',
-      '}',
-      '',
-      '/* Tablet portrait: use the same idea, but keep a little more breathing room. */',
-      '@media (min-width: 700px) and (max-width: 1100px) and (orientation: portrait) {',
-      '  .main[data-stage="measure"] .side {',
-      '    max-height: min(44svh, 470px) !important;',
-      '    overflow-y: auto !important;',
-      '    padding-right: 8px !important;',
-      '  }',
-      '  .main[data-stage="measure"] .measureAction {',
-      '    position: sticky !important;',
-      '    bottom: 6px !important;',
-      '  }',
-      '}',
-      '',
-      '/* Small phones are already vertical; let the page scroll normally. */',
-      '@media (max-width: 699px) {',
-      '  .main[data-stage="measure"] .side {',
-      '    max-height: none !important;',
-      '    overflow: visible !important;',
-      '    padding-right: 0 !important;',
-      '  }',
-      '  .main[data-stage="measure"] .measureAction { position: static !important; }',
-      '}'
-    ].join('\n');
-    document.head.appendChild(style);
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', injectMeasureScrollFix);
-  } else {
-    injectMeasureScrollFix();
-  }
-})();
 
 /*
- * KATAPATA unit switch placement + always-visible measurement scrollbar.
- * - Keeps JP/EN language switch in its original place.
- * - Moves only the existing cm/inch control close to the measurement inputs.
- * - Makes the measurement side panel scrollable on desktop/tablet so the create button is reachable.
+ * KATAPATA measurement panel refinement.
+ * - Places only the cm/inch unit control near the measurement inputs, in a compact row.
+ * - Keeps the JP/EN language switch untouched.
+ * - Makes the measurement input card itself scrollable on PC/tablet.
+ * - Moves the create-sloper button just under the input fields so it is easy to find.
  */
 (function () {
   'use strict';
 
-  function injectUnitAndScrollStyle() {
-    if (document.getElementById('katapataUnitNearMeasureStyle')) return;
+  function injectMeasureRefineStyle() {
+    if (document.getElementById('katapataMeasurePanelRefineStyle')) return;
     var style = document.createElement('style');
-    style.id = 'katapataUnitNearMeasureStyle';
+    style.id = 'katapataMeasurePanelRefineStyle';
     style.textContent = [
-      '/* Measurement panel: make the input area reliably scrollable on PC/tablet. */',
+      '/* Keep the measurement side compact and scrollable on PC/tablet. */',
       '@media (min-width: 700px) {',
       '  .main[data-stage="measure"] { overflow: hidden !important; }',
-      '  .main[data-stage="measure"] .side {',
-      '    height: calc(100svh - 108px) !important;',
-      '    max-height: calc(100svh - 108px) !important;',
-      '    overflow-y: scroll !important;',
-      '    overflow-x: hidden !important;',
-      '    overscroll-behavior: contain !important;',
-      '    align-content: start !important;',
-      '    padding-right: 10px !important;',
-      '    scrollbar-gutter: stable !important;',
-      '    scrollbar-width: thin;',
-      '    scrollbar-color: #bfae85 #f4efe6;',
-      '  }',
-      '  .main[data-stage="measure"] .side::-webkit-scrollbar { width: 10px; }',
-      '  .main[data-stage="measure"] .side::-webkit-scrollbar-track { background: #f4efe6; border-radius: 999px; }',
-      '  .main[data-stage="measure"] .side::-webkit-scrollbar-thumb { background: #bfae85; border-radius: 999px; border: 2px solid #f4efe6; }',
-      '  .main[data-stage="measure"] .measureAction {',
-      '    position: sticky !important;',
-      '    bottom: 8px !important;',
-      '    z-index: 80 !important;',
-      '    min-height: 40px !important;',
-      '    box-shadow: 0 12px 26px rgba(23,23,23,.18) !important;',
-      '  }',
-      '}',
-      '',
-      '@media (min-width: 700px) and (max-height: 760px) {',
-      '  .main[data-stage="measure"] .side {',
-      '    height: calc(100svh - 96px) !important;',
-      '    max-height: calc(100svh - 96px) !important;',
-      '  }',
-      '  .main[data-stage="measure"] .panel { padding: 9px 10px !important; }',
-      '  .main[data-stage="measure"] .measureEntryTop { gap: 3px !important; }',
-      '  .main[data-stage="measure"] .measureFormGrid,',
-      '  .main[data-stage="measure"] .measureRequiredColumn,',
-      '  .main[data-stage="measure"] .optionalSleeveGrid { gap: 5px !important; }',
-      '  .main[data-stage="measure"] .optionalSleeveBox { padding: 6px !important; }',
-      '  .main[data-stage="measure"] .measureInputCard { padding: 5px 6px !important; }',
-      '  .main[data-stage="measure"] .measureInputBox input { height: 25px !important; }',
-      '}',
-      '',
-      '/* Unit switch inserted near measurement inputs. */',
-      '.katapata-local-unit-switch {',
-      '  display: flex !important;',
-      '  align-items: center !important;',
-      '  justify-content: space-between !important;',
-      '  gap: 8px !important;',
-      '  margin: 6px 0 7px !important;',
-      '  padding: 7px 8px !important;',
-      '  border: 1px solid #eadfce !important;',
-      '  border-radius: 13px !important;',
-      '  background: #fffaf2 !important;',
-      '}',
-      '.katapata-local-unit-switch .katapata-unit-label {',
-      '  flex: 0 0 auto !important;',
-      '  font-size: 10px !important;',
-      '  font-weight: 950 !important;',
-      '  color: #5d5247 !important;',
-      '  letter-spacing: .04em !important;',
-      '}',
-      '.katapata-local-unit-switch .katapata-unit-control {',
-      '  display: inline-flex !important;',
-      '  align-items: center !important;',
-      '  justify-content: flex-end !important;',
-      '  gap: 5px !important;',
-      '  min-width: 0 !important;',
-      '  flex: 1 1 auto !important;',
-      '}',
-      '.katapata-local-unit-switch button,',
-      '.katapata-local-unit-switch select,',
-      '.katapata-local-unit-switch label {',
-      '  min-height: 28px !important;',
-      '  height: 28px !important;',
-      '  border-radius: 999px !important;',
-      '  font-size: 10px !important;',
-      '  font-weight: 950 !important;',
-      '}',
-      '.katapata-local-unit-switch button { padding: 0 10px !important; }',
-      '@media (max-width: 699px) {',
-      '  .katapata-local-unit-switch { margin: 7px 0 !important; }',
-      '}',
-      '',
-      '/* Phones: use normal page scroll rather than nested scrolling. */',
-      '@media (max-width: 699px) {',
-      '  .main[data-stage="measure"] { overflow: visible !important; }',
       '  .main[data-stage="measure"] .side {',
       '    height: auto !important;',
       '    max-height: none !important;',
       '    overflow: visible !important;',
       '    padding-right: 0 !important;',
       '  }',
+      '  .main[data-stage="measure"] .side > .panel:first-child {',
+      '    max-height: calc(100svh - 120px) !important;',
+      '    overflow-y: scroll !important;',
+      '    overflow-x: hidden !important;',
+      '    overscroll-behavior: contain !important;',
+      '    padding-right: 14px !important;',
+      '    scrollbar-gutter: stable both-edges !important;',
+      '    scrollbar-width: auto !important;',
+      '    scrollbar-color: #7f7467 #eee7dd !important;',
+      '  }',
+      '  .main[data-stage="measure"] .side > .panel:first-child::-webkit-scrollbar { width: 12px !important; }',
+      '  .main[data-stage="measure"] .side > .panel:first-child::-webkit-scrollbar-track { background: #eee7dd !important; border-radius: 999px !important; }',
+      '  .main[data-stage="measure"] .side > .panel:first-child::-webkit-scrollbar-thumb { background: #7f7467 !important; border-radius: 999px !important; border: 3px solid #eee7dd !important; }',
+      '  .main[data-stage="measure"] .measureAction {',
+      '    display: block !important;',
+      '    width: 100% !important;',
+      '    min-height: 38px !important;',
+      '    height: 38px !important;',
+      '    margin: 7px 0 8px !important;',
+      '    position: sticky !important;',
+      '    bottom: 6px !important;',
+      '    z-index: 50 !important;',
+      '    box-shadow: 0 10px 20px rgba(23,23,23,.14) !important;',
+      '  }',
+      '}',
+      '@media (min-width: 700px) and (max-height: 760px) {',
+      '  .main[data-stage="measure"] { gap: 8px !important; padding: 8px !important; }',
+      '  .main[data-stage="measure"] .side > .panel:first-child { max-height: calc(100svh - 96px) !important; }',
+      '  .main[data-stage="measure"] .side > .panel:first-child { padding: 8px 12px 8px 9px !important; }',
+      '  .main[data-stage="measure"] .measureEntryPanel { gap: 4px !important; }',
+      '  .main[data-stage="measure"] .measureEntryTop { gap: 2px !important; }',
+      '  .main[data-stage="measure"] .measureEntryTitle { font-size: 12.5px !important; }',
+      '  .main[data-stage="measure"] .measureEntryLead { font-size: 8.5px !important; line-height: 1.25 !important; }',
+      '  .main[data-stage="measure"] .measureFormGrid,',
+      '  .main[data-stage="measure"] .measureRequiredColumn,',
+      '  .main[data-stage="measure"] .optionalSleeveGrid { gap: 4px !important; }',
+      '  .main[data-stage="measure"] .measureInputCard { padding: 4px 6px !important; border-radius: 10px !important; }',
+      '  .main[data-stage="measure"] .measureInputLabel strong { font-size: 9px !important; }',
+      '  .main[data-stage="measure"] .measureInputHint { font-size: 7px !important; }',
+      '  .main[data-stage="measure"] .measureInputBox input { height: 23px !important; font-size: 13px !important; }',
+      '  .main[data-stage="measure"] .optionalSleeveBox { padding: 5px 6px !important; border-radius: 13px !important; }',
+      '  .main[data-stage="measure"] .measureAction { min-height: 34px !important; height: 34px !important; font-size: 10.5px !important; }',
+      '}',
+      '/* Compact cm/inch switch near the measurement form. */',
+      '.katapata-compact-unit-row {',
+      '  display: inline-flex !important;',
+      '  align-items: center !important;',
+      '  gap: 5px !important;',
+      '  width: fit-content !important;',
+      '  max-width: 100% !important;',
+      '  margin: 3px 0 4px !important;',
+      '  padding: 3px 5px !important;',
+      '  border: 1px solid #eadfce !important;',
+      '  border-radius: 999px !important;',
+      '  background: #fffaf2 !important;',
+      '  line-height: 1 !important;',
+      '}',
+      '.katapata-compact-unit-row .katapata-unit-label {',
+      '  display: inline-block !important;',
+      '  margin: 0 2px 0 3px !important;',
+      '  font-size: 9px !important;',
+      '  font-weight: 900 !important;',
+      '  color: #6a5d50 !important;',
+      '}',
+      '.katapata-compact-unit-row .katapata-unit-control {',
+      '  display: inline-flex !important;',
+      '  align-items: center !important;',
+      '  gap: 3px !important;',
+      '}',
+      '.katapata-compact-unit-row button,',
+      '.katapata-compact-unit-row label,',
+      '.katapata-compact-unit-row select,',
+      '.katapata-compact-unit-row [role="button"] {',
+      '  min-height: 22px !important;',
+      '  height: 22px !important;',
+      '  border-radius: 999px !important;',
+      '  padding: 0 8px !important;',
+      '  font-size: 9px !important;',
+      '  font-weight: 950 !important;',
+      '  line-height: 22px !important;',
+      '}',
+      '/* Phones: avoid nested scrolling unless the browser needs it. */',
+      '@media (max-width: 699px) {',
+      '  .main[data-stage="measure"] { overflow: visible !important; }',
+      '  .main[data-stage="measure"] .side,',
+      '  .main[data-stage="measure"] .side > .panel:first-child {',
+      '    max-height: none !important;',
+      '    overflow: visible !important;',
+      '    padding-right: initial !important;',
+      '  }',
       '  .main[data-stage="measure"] .measureAction { position: static !important; box-shadow: none !important; }',
-      '}'
+      '}',
+      ''
     ].join('\n');
     document.head.appendChild(style);
   }
@@ -908,21 +808,19 @@
   }
 
   function hasLanguageText(el) {
-    var t = cleanText(el && el.innerText || el && el.textContent || '');
+    var t = cleanText(el && (el.innerText || el.textContent) || '');
     return /日本語|英語|English|Japanese|Language|言語/i.test(t);
   }
 
-  function hasUnitText(el) {
-    var t = cleanText(el && el.innerText || el && el.textContent || '');
-    return /\bcm\b|\binch\b|インチ|単位|unit/i.test(t);
+  function elementText(el) {
+    return cleanText((el && (el.innerText || el.textContent || el.value || el.getAttribute('aria-label') || el.getAttribute('title'))) || '');
   }
 
-  function isInsideMeasurementUnitLabel(el) {
+  function isMeasurementUnitSuffix(el) {
     return !!(el && el.closest && el.closest('.measureInputBox'));
   }
 
-  function findExistingUnitControl() {
-    // Prefer an existing compact wrapper that includes both cm and inch, but not language switching.
+  function findUnitControl() {
     var selectors = [
       '[class*="unit" i]', '[id*="unit" i]', '[class*="measureUnit" i]', '[id*="measureUnit" i]',
       'button', 'select', 'label', '[role="button"]'
@@ -930,92 +828,119 @@
     var all = Array.prototype.slice.call(document.querySelectorAll(selectors.join(',')));
     var candidates = all.filter(function (el) {
       if (!el || !el.parentNode) return false;
-      if (el.closest('.katapata-local-unit-switch')) return false;
-      if (isInsideMeasurementUnitLabel(el)) return false;
+      if (el.closest('.katapata-compact-unit-row')) return false;
+      if (isMeasurementUnitSuffix(el)) return false;
       if (hasLanguageText(el)) return false;
-
       if (el.tagName === 'SELECT') {
         var optionText = Array.prototype.map.call(el.options || [], function (o) { return cleanText(o.textContent); }).join(' ');
         return /\bcm\b/i.test(optionText) && /\binch\b/i.test(optionText);
       }
-
-      var text = cleanText(el.innerText || el.textContent || el.value || el.getAttribute('aria-label') || el.getAttribute('title') || '');
-      return /\bcm\b/i.test(text) || /\binch\b/i.test(text) || /単位|unit/i.test(text);
+      var text = elementText(el);
+      return /\bcm\b/i.test(text) || /\binch\b/i.test(text) || /^単位$|^unit$/i.test(text);
     });
-
     if (!candidates.length) return null;
 
-    // If there are separate cm/inch buttons, move their nearest shared parent.
-    var cm = candidates.find(function (el) { return /\bcm\b/i.test(cleanText(el.innerText || el.textContent || el.value || el.getAttribute('aria-label') || '')); });
-    var inch = candidates.find(function (el) { return /\binch\b/i.test(cleanText(el.innerText || el.textContent || el.value || el.getAttribute('aria-label') || '')); });
+    var cm = candidates.find(function (el) { return /\bcm\b/i.test(elementText(el)); });
+    var inch = candidates.find(function (el) { return /\binch\b/i.test(elementText(el)); });
     if (cm && inch) {
       var p = cm;
       while (p && p !== document.body) {
-        if (p.contains(inch) && hasUnitText(p) && !hasLanguageText(p) && !p.closest('.measureInputBox')) {
-          var pt = cleanText(p.innerText || p.textContent || '');
-          // Avoid moving huge panels/navs: unit control text should be compact.
-          if (pt.length <= 80 || p.querySelectorAll('button,select,label,[role="button"]').length <= 4) return p;
+        if (p.contains(inch) && !hasLanguageText(p) && !p.closest('.measureInputBox')) {
+          var controls = p.querySelectorAll('button,select,label,[role="button"]').length;
+          var txt = cleanText(p.innerText || p.textContent || '');
+          if (controls <= 4 && txt.length <= 80) return p;
         }
         p = p.parentElement;
       }
     }
 
-    // Otherwise move the candidate itself or a compact parent if it looks like a control group.
     var first = candidates[0];
     var parent = first.parentElement;
-    if (parent && parent !== document.body && hasUnitText(parent) && !hasLanguageText(parent) && cleanText(parent.innerText || parent.textContent || '').length <= 80) {
-      return parent;
+    if (parent && parent !== document.body && !hasLanguageText(parent)) {
+      var pt = cleanText(parent.innerText || parent.textContent || '');
+      var pc = parent.querySelectorAll('button,select,label,[role="button"]').length;
+      if (pc <= 4 && pt.length <= 80) return parent;
     }
     return first;
   }
 
-  function insertUnitSwitchNearMeasure() {
-    var main = document.querySelector('.main[data-stage="measure"]');
+  function getMeasureMain() {
+    return document.querySelector('.main[data-stage="measure"]');
+  }
+
+  function placeUnitSwitch() {
+    var main = getMeasureMain();
     if (!main) return;
-    var targetTop = main.querySelector('.measureEntryTop') || main.querySelector('.measureEntryPanel') || main.querySelector('.measureFormGrid') || main.querySelector('.side .panel');
-    if (!targetTop) return;
-
-    var control = findExistingUnitControl();
+    var control = findUnitControl();
     if (!control) return;
-    if (control.closest('.katapata-local-unit-switch')) return;
+    if (control.closest('.katapata-compact-unit-row')) return;
 
-    var existing = main.querySelector('.katapata-local-unit-switch');
-    if (!existing) {
-      existing = document.createElement('div');
-      existing.className = 'katapata-local-unit-switch';
+    var row = main.querySelector('.katapata-compact-unit-row');
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'katapata-compact-unit-row';
       var label = document.createElement('span');
       label.className = 'katapata-unit-label';
       var isEnglish = /\b(Size|Bust|Waist|Sleeve|Unit)\b/i.test(document.body.innerText || '') && !/寸法|原型|袖丈/.test(document.body.innerText || '');
       label.textContent = isEnglish ? 'Unit' : '単位';
       var holder = document.createElement('div');
       holder.className = 'katapata-unit-control';
-      existing.appendChild(label);
-      existing.appendChild(holder);
+      row.appendChild(label);
+      row.appendChild(holder);
 
-      // Put it between the title/lead and the input fields when possible.
-      var form = main.querySelector('.measureFormGrid') || main.querySelector('.measureCompactLayout');
-      if (form && form.parentNode) form.parentNode.insertBefore(existing, form);
-      else targetTop.appendChild(existing);
+      // Put the switch just above the required measurements, not as a tall full-width block.
+      var compactLayout = main.querySelector('.measureCompactLayout');
+      var formGrid = main.querySelector('.measureFormGrid');
+      var entryPanel = main.querySelector('.measureEntryPanel');
+      if (compactLayout && compactLayout.parentNode) {
+        compactLayout.parentNode.insertBefore(row, compactLayout);
+      } else if (formGrid && formGrid.parentNode) {
+        formGrid.parentNode.insertBefore(row, formGrid);
+      } else if (entryPanel) {
+        entryPanel.appendChild(row);
+      }
     }
 
-    var holderEl = existing.querySelector('.katapata-unit-control') || existing;
+    var holderEl = row.querySelector('.katapata-unit-control') || row;
     control.setAttribute('data-katapata-unit-moved', '1');
     holderEl.appendChild(control);
   }
 
-  function scheduleUnitPlacement() {
-    window.setTimeout(insertUnitSwitchNearMeasure, 0);
-    window.setTimeout(insertUnitSwitchNearMeasure, 120);
-    window.setTimeout(insertUnitSwitchNearMeasure, 420);
-    window.setTimeout(insertUnitSwitchNearMeasure, 1000);
+  function moveCreateButtonNearInputs() {
+    var main = getMeasureMain();
+    if (!main) return;
+    var action = main.querySelector('.measureAction');
+    if (!action) return;
+    var compactLayout = main.querySelector('.measureCompactLayout');
+    var formGrid = main.querySelector('.measureFormGrid');
+    var entryPanel = main.querySelector('.measureEntryPanel');
+    var anchor = compactLayout || formGrid;
+    if (!anchor || !entryPanel) return;
+
+    // Keep it directly after the input area and before save-data blocks.
+    if (anchor.nextSibling !== action) {
+      anchor.parentNode.insertBefore(action, anchor.nextSibling);
+    }
+  }
+
+  function refineMeasurePanel() {
+    injectMeasureRefineStyle();
+    placeUnitSwitch();
+    moveCreateButtonNearInputs();
+  }
+
+  function scheduleRefine() {
+    window.setTimeout(refineMeasurePanel, 0);
+    window.setTimeout(refineMeasurePanel, 120);
+    window.setTimeout(refineMeasurePanel, 420);
+    window.setTimeout(refineMeasurePanel, 1000);
   }
 
   function boot() {
-    injectUnitAndScrollStyle();
-    scheduleUnitPlacement();
-    document.addEventListener('click', function () { window.setTimeout(scheduleUnitPlacement, 60); }, true);
+    scheduleRefine();
+    document.addEventListener('click', function () { window.setTimeout(scheduleRefine, 80); }, true);
     if (window.MutationObserver) {
-      var obs = new MutationObserver(function () { scheduleUnitPlacement(); });
+      var obs = new MutationObserver(function () { scheduleRefine(); });
       obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-stage', 'class'] });
     }
   }
