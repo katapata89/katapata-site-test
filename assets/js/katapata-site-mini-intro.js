@@ -708,14 +708,15 @@
       '@media (max-width:699px),(min-width:1181px),(pointer:fine){#'+RAIL_ID+'{display:none!important;}}\n' +
       '/* Measurement unit switch dock: proxy only. Original language switch stays where it is. */\n' +
       '#'+UNIT_BOX_ID+'{display:none;}\n' +
-      '.katapata-measure-unit-ready #'+UNIT_BOX_ID+'{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px;padding:8px 9px;border:1px solid #eadfce;border-radius:14px;background:#fffaf2;color:#3f3932;}\n' +
-      '#'+UNIT_BOX_ID+' .kmud-label{font-size:11px;font-weight:950;letter-spacing:.04em;color:#5d5247;white-space:nowrap;}\n' +
-      '#'+UNIT_BOX_ID+' .kmud-note{font-size:10px;font-weight:800;color:#7b6b5a;line-height:1.35;}\n' +
-      '#'+UNIT_BOX_ID+' .kmud-controls{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;}\n' +
-      '#'+UNIT_BOX_ID+' .kmud-unit-btn{appearance:none;border:1px solid #ded5ca;background:#fbf8f2;color:#4f463d;min-height:30px;height:30px;padding:0 12px;border-radius:999px;font-size:11px;font-weight:950;line-height:1;box-shadow:none;}\n' +
+      '.katapata-measure-unit-ready #'+UNIT_BOX_ID+'{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px;padding:6px 7px;border:1px solid #eadfce;border-radius:12px;background:#fffaf2;color:#3f3932;}\n' +
+      '.optionalSleeveBox #'+UNIT_BOX_ID+'{margin:0 0 5px;padding:5px 6px;border-radius:11px;background:#fffdf8;}\n' +
+      '#'+UNIT_BOX_ID+' .kmud-label{font-size:10px;font-weight:950;letter-spacing:.04em;color:#5d5247;white-space:nowrap;}\n' +
+      '#'+UNIT_BOX_ID+' .kmud-note{display:none;}\n' +
+      '#'+UNIT_BOX_ID+' .kmud-controls{display:inline-flex;gap:5px;align-items:center;flex-wrap:nowrap;}\n' +
+      '#'+UNIT_BOX_ID+' .kmud-unit-btn{appearance:none;border:1px solid #ded5ca;background:#fbf8f2;color:#4f463d;min-height:27px;height:27px;padding:0 9px;border-radius:999px;font-size:10.5px;font-weight:950;line-height:1;box-shadow:none;}\n' +
       '#'+UNIT_BOX_ID+' .kmud-unit-btn.is-active{background:#171717!important;color:#fffdf8!important;border-color:#171717!important;}\n' +
       '#'+UNIT_BOX_ID+' .kmud-unit-btn:disabled{opacity:.42;cursor:not-allowed;}\n' +
-      '@media (min-width:700px) and (max-width:1100px) and (orientation:portrait){#'+UNIT_BOX_ID+'{margin-bottom:10px;padding:9px 10px;} #'+UNIT_BOX_ID+' .kmud-label{font-size:12px;} #'+UNIT_BOX_ID+' .kmud-unit-btn{min-height:34px;height:34px;font-size:12px;padding:0 14px;}}\n';
+      '@media (min-width:700px) and (max-width:1100px) and (orientation:portrait){.optionalSleeveBox #'+UNIT_BOX_ID+'{margin-bottom:6px;padding:6px 7px;} #'+UNIT_BOX_ID+' .kmud-label{font-size:11.5px;} #'+UNIT_BOX_ID+' .kmud-unit-btn{min-height:32px;height:32px;font-size:11.5px;padding:0 12px;}}\n';
     document.head.appendChild(style);
   }
 
@@ -755,7 +756,9 @@
       document.body.appendChild(rail);
     }
     var pos = (stageIndex(getMainStage()) / 5 * 100).toFixed(1) + '%';
-    rail.style.setProperty('--katapata-rail-pos', pos);
+    if (rail.style.getPropertyValue('--katapata-rail-pos') !== pos) {
+      rail.style.setProperty('--katapata-rail-pos', pos);
+    }
   }
 
   function isHidden(el) {
@@ -863,6 +866,8 @@
     var main = document.querySelector('.main[data-stage="measure"]');
     if (!main) {
       document.body.classList.remove('katapata-measure-unit-ready');
+      var oldDock = document.getElementById(UNIT_BOX_ID);
+      if (oldDock && oldDock.parentNode) oldDock.parentNode.removeChild(oldDock);
       return;
     }
 
@@ -884,7 +889,11 @@
       dock.querySelector('[data-unit="cm"]').addEventListener('click', function () { clickOriginalUnit('cm'); });
       dock.querySelector('[data-unit="inch"]').addEventListener('click', function () { clickOriginalUnit('inch'); });
     }
-    if (dock.parentElement !== panel) panel.insertBefore(dock, panel.firstChild);
+    var sleeveBox = main.querySelector('.optionalSleeveBox');
+    var targetParent = sleeveBox || panel;
+    var beforeNode = sleeveBox ? (sleeveBox.querySelector('.optionalSleeveGrid') || null) : panel.firstChild;
+    if (dock.parentElement !== targetParent) targetParent.insertBefore(dock, beforeNode);
+    else if (beforeNode && dock.nextSibling !== beforeNode) targetParent.insertBefore(dock, beforeNode);
 
     var en = looksEnglish();
     dock.querySelector('.kmud-label').textContent = en ? 'Unit' : '単位';
@@ -908,12 +917,11 @@
   function start() {
     injectStyle();
     scheduleUpdate();
-    document.addEventListener('click', scheduleUpdate, true);
     window.addEventListener('resize', scheduleUpdate);
     window.addEventListener('orientationchange', scheduleUpdate);
     if (window.MutationObserver) {
       var obs = new MutationObserver(scheduleUpdate);
-      obs.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-stage','class','style'] });
+      obs.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-stage','class'] });
     }
   }
 
@@ -928,6 +936,7 @@
  * KATAPATA offline support + autosave safety net.
  * - Registers the site service worker for offline use after first online load.
  * - Keeps a local draft snapshot of common input/select/textarea fields.
+ * - Safe mode: restores values only and avoids interfering with stage transitions.
  * - Shows a small restore notice if previous work is found after reload.
  */
 (function () {
@@ -1044,7 +1053,6 @@
     try {
       var snapshot = takeSnapshot();
       localStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot));
-      showSavedToast();
     } catch (e) {}
   }
 
@@ -1081,9 +1089,9 @@
     Object.keys(data.fields).forEach(function (key) {
       if (byKey[key]) writeField(byKey[key], data.fields[key]);
     });
-    setTimeout(function () { clickStage(data.stage); }, 120);
+    // Restore only input values. Do not auto-click stages here; stage transitions can be delicate.
     setTimeout(saveDraft, 500);
-    showInlineNotice('前回の作業を復元しました。', 'restored');
+    showInlineNotice('前回の入力内容を復元しました。', 'restored');
   }
 
   function clearDraft() {
@@ -1170,7 +1178,6 @@
     ensureStyle();
     document.addEventListener('input', scheduleSave, true);
     document.addEventListener('change', scheduleSave, true);
-    document.addEventListener('click', function () { setTimeout(scheduleSave, 250); }, true);
     window.addEventListener('beforeunload', saveDraft);
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'hidden') saveDraft();

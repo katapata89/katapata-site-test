@@ -1,5 +1,5 @@
 /* KATAPATA offline cache. */
-const CACHE_VERSION = 'katapata-offline-v1';
+const CACHE_VERSION = 'katapata-offline-v2';
 const CORE_ASSETS = [
   '/',
   '/index.html',
