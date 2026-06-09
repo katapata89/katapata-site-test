@@ -241,23 +241,81 @@
     }) || null;
   }
 
-  function parseSummary(raw) {
+  function detectOutputLanguage(raw) {
+    var htmlLang = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+    var bodyText = (document.body && (document.body.innerText || document.body.textContent) || '');
+    var s = [htmlLang, raw || '', bodyText || '', location.href || ''].join(' ');
+    if (/\blang=en\b|[?&]lang=en\b|\/en(?:\/|$)/i.test(s)) return 'en';
+    if (/\b(Output|PDF Output|Output target|Category|Free|Paid|Print-ready|Purchase|Download sample|Tops|Bottoms|With sleeve|No sleeve)\b/i.test(s)) return 'en';
+    return 'ja';
+  }
+
+  function labelFor(lang, key) {
+    var dict = {
+      ja: {
+        outputTitle: 'PDF出力',
+        freeTitle: '無料：縮小サンプルPDF',
+        freeDesc: '確認用です。実寸ではありません。',
+        sampleButton: '縮小サンプルを出力',
+        sampleMissing: '縮小サンプルPDFのボタンが見つかりませんでした。',
+        paidTitle: '有料：印刷用PDF',
+        paidDesc: '有料出力では、通常サイズPDFとA4分割印刷PDFをセットで使えます。トップスは前・後・袖の3点セット800円、ボトムスはスカートとパンツ、各400円を予定しています。',
+        purchaseButton: '印刷用PDFを購入',
+        paidMissing: '購入後に利用できます。テスト時以外は直接ダウンロードボタンを表示しません。',
+        backButton: '確定に戻る',
+        defaultTarget: '選択中の製図'
+      },
+      en: {
+        outputTitle: 'PDF Output',
+        freeTitle: 'Free: Sample PDF',
+        freeDesc: 'For checking only. Not actual size.',
+        sampleButton: 'Download sample PDF',
+        sampleMissing: 'The sample PDF button was not found.',
+        paidTitle: 'Paid: Print-ready PDF',
+        paidDesc: 'Paid output includes both the full-size PDF and the A4 tiled PDF. Tops is an 800 yen set including front, back, and sleeve. Skirt and pants are 400 yen each.',
+        purchaseButton: 'Purchase print-ready PDF',
+        paidMissing: 'Available after purchase. Direct download buttons are hidden outside test mode.',
+        backButton: 'Back to confirmation',
+        defaultTarget: 'Selected pattern'
+      }
+    };
+    return (dict[lang] || dict.ja)[key] || dict.ja[key] || '';
+  }
+
+  function translatePill(value, lang) {
+    if (lang !== 'en') return value;
+    var map = {
+      'トップス': 'Tops',
+      '全体': 'Tops',
+      '前': 'Front',
+      '後': 'Back',
+      '袖': 'Sleeve',
+      '袖あり': 'With sleeve',
+      '袖なし': 'No sleeve',
+      'スカート': 'Skirt',
+      'パンツ': 'Pants',
+      '選択中の製図': 'Selected pattern'
+    };
+    return map[value] || value;
+  }
+
+  function parseSummary(raw, lang) {
     var lines = (raw || '').split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
     var target = '';
     var kind = '';
     for (var i = 0; i < lines.length; i++) {
-      if (lines[i] === '出力対象' && lines[i + 1]) target = lines[i + 1];
-      if (lines[i] === '区分' && lines[i + 1]) kind = lines[i + 1];
+      if ((lines[i] === '出力対象' || /^Output target$/i.test(lines[i])) && lines[i + 1]) target = lines[i + 1];
+      if ((lines[i] === '区分' || /^Category$/i.test(lines[i])) && lines[i + 1]) kind = lines[i + 1];
     }
     if (!target) {
-      var m = (raw || '').match(/出力対象\s*([^\n]+)/);
+      var m = (raw || '').match(/(?:出力対象|Output target)\s*([^\n]+)/i);
       if (m) target = m[1].trim();
     }
     if (!kind) {
-      var k = (raw || '').match(/区分\s*([^\n]+)/);
+      var k = (raw || '').match(/(?:区分|Category)\s*([^\n]+)/i);
       if (k) kind = k[1].trim();
     }
-    return { target: target || '選択中の製図', kind: kind || '' };
+    return { target: translatePill(target || labelFor(lang, 'defaultTarget'), lang), kind: translatePill(kind || '', lang) };
   }
 
   function injectOutputStyle() {
@@ -300,58 +358,64 @@
     var raw = side.innerText || '';
     if (!/縮小サンプル|通常サイズ|A4|印刷|PDF|購入/.test(raw)) return;
 
+    var lang = detectOutputLanguage(raw);
     var existing = side.querySelector('.katapata-output-final');
-    if (existing && !hasDirectPaidButtons(side)) return;
+    if (existing && !hasDirectPaidButtons(side)) {
+      var existingText = textOf(existing);
+      var needsEnglishRewrite = lang === 'en' && /有料|無料|縮小|印刷用PDF|確定に戻る/.test(existingText);
+      var needsJapaneseRewrite = lang !== 'en' && /\b(Paid|Free|Print-ready|Download sample|Back to confirmation)\b/i.test(existingText);
+      if (!needsEnglishRewrite && !needsJapaneseRewrite) return;
+    }
 
     injectOutputStyle();
 
     var buttons = Array.prototype.slice.call(side.querySelectorAll('button'));
-    var sampleBtn = findButton(buttons, [/縮小サンプル/, /サンプルPDF/]);
+    var sampleBtn = findButton(buttons, [/縮小サンプル/, /サンプルPDF/, /sample pdf/i, /download sample/i]);
     var purchaseBtn = findButton(
       buttons,
-      [/購入ページへ/, /購入ページ/, /^\s*購入\s*$/],
-      [/通常サイズPDF/, /A4分割印刷PDF/, /通常サイズ・A4分割印刷PDF/]
+      [/購入ページへ/, /購入ページ/, /^\s*購入\s*$/, /purchase/i, /checkout/i, /buy/i],
+      [/通常サイズPDF/, /A4分割印刷PDF/, /通常サイズ・A4分割印刷PDF/, /full-size pdf/i, /a4 tiled pdf/i]
     );
-    var backBtn = findButton(buttons, [/戻る.*確定/, /確定へ戻る/, /^\s*戻る\s*$/, /^\s*確定\s*$/]);
-    var summary = parseSummary(raw);
+    var backBtn = findButton(buttons, [/戻る.*確定/, /確定へ戻る/, /^\s*戻る\s*$/, /^\s*確定\s*$/, /back.*confirm/i, /confirmation/i]);
+    var summary = parseSummary(raw, lang);
 
     var compact = makeEl('div', 'katapata-output-final');
     var panel = makeEl('div', 'kop-panel');
     compact.appendChild(panel);
 
-    panel.appendChild(makeEl('div', 'kop-title', 'PDF出力'));
+    panel.appendChild(makeEl('div', 'kop-title', labelFor(lang, 'outputTitle')));
     var target = makeEl('div', 'kop-target');
     target.appendChild(makeEl('span', 'kop-pill', summary.target));
     if (summary.kind) target.appendChild(makeEl('span', 'kop-pill', summary.kind));
     panel.appendChild(target);
 
     var free = makeEl('section', 'kop-section free');
-    free.appendChild(makeEl('div', 'kop-section-title', '無料：縮小サンプルPDF'));
-    free.appendChild(makeEl('p', 'kop-desc', '確認用です。実寸ではありません。'));
+    free.appendChild(makeEl('div', 'kop-section-title', labelFor(lang, 'freeTitle')));
+    free.appendChild(makeEl('p', 'kop-desc', labelFor(lang, 'freeDesc')));
     var freeActions = makeEl('div', 'kop-actions');
     if (sampleBtn) {
-      sampleBtn.textContent = '縮小サンプルを出力';
+      sampleBtn.textContent = labelFor(lang, 'sampleButton');
       freeActions.appendChild(sampleBtn);
     }
-    else freeActions.appendChild(makeEl('div', 'kop-empty', '縮小サンプルPDFのボタンが見つかりませんでした。'));
+    else freeActions.appendChild(makeEl('div', 'kop-empty', labelFor(lang, 'sampleMissing')));
     free.appendChild(freeActions);
     panel.appendChild(free);
 
     var paid = makeEl('section', 'kop-section paid');
-    paid.appendChild(makeEl('div', 'kop-section-title', '有料：印刷用PDF'));
-    paid.appendChild(makeEl('p', 'kop-desc', '有料出力では、通常サイズPDFとA4分割印刷PDFをセットで使えます。トップスは前・後・袖の3点セット800円、ボトムスはスカートとパンツ、各400円を予定しています。'));
+    paid.appendChild(makeEl('div', 'kop-section-title', labelFor(lang, 'paidTitle')));
+    paid.appendChild(makeEl('p', 'kop-desc', labelFor(lang, 'paidDesc')));
     var paidActions = makeEl('div', 'kop-actions');
     if (purchaseBtn) {
-      purchaseBtn.textContent = '印刷用PDFを購入';
+      purchaseBtn.textContent = labelFor(lang, 'purchaseButton');
       paidActions.appendChild(purchaseBtn);
     }
-    else paidActions.appendChild(makeEl('div', 'kop-empty', '購入後に利用できます。テスト時以外は直接ダウンロードボタンを表示しません。'));
+    else paidActions.appendChild(makeEl('div', 'kop-empty', labelFor(lang, 'paidMissing')));
     paid.appendChild(paidActions);
     panel.appendChild(paid);
 
     if (backBtn) {
       var back = makeEl('div', 'kop-actions');
-      backBtn.textContent = '確定に戻る';
+      backBtn.textContent = labelFor(lang, 'backButton');
       back.appendChild(backBtn);
       panel.appendChild(back);
     }
