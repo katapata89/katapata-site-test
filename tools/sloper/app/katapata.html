@@ -201,8 +201,15 @@ window.addEventListener("DOMContentLoaded", () => {
       ? payText('購入後に表示された解除コードを入力してください。', 'Enter the unlock code shown after purchase.')
       : payText('解除コード照合URLがまだ設定されていません。', 'The unlock-code verification URL has not been set yet.');
 
-    if (codeInput) codeInput.disabled = unlocked || !canVerify;
-    if (unlockButton) unlockButton.disabled = unlocked || !canVerify;
+    // 入力欄はURL未設定でも入力できるようにしておく。
+    // URL未設定の場合は、照合ボタンを押したときに案内を出す。
+    if (codeInput) {
+      codeInput.disabled = !!unlocked;
+      codeInput.readOnly = false;
+      codeInput.style.pointerEvents = unlocked ? 'none' : 'auto';
+      codeInput.style.opacity = unlocked ? '0.65' : '1';
+    }
+    if (unlockButton) unlockButton.disabled = !!unlocked;
   };
 
   katapataTryUnlockCode = async function patchedKatapataTryUnlockCode(){
@@ -252,6 +259,22 @@ window.addEventListener("DOMContentLoaded", () => {
 
     setMessage(payText('解除コード照合URLがまだ設定されていません。', 'The unlock-code verification URL has not been set yet.'), 'warn');
   };
+
+
+
+  // 念のため、モーダル表示後に入力欄が無効化された場合も解除する。
+  document.addEventListener('click', function katapataKeepUnlockInputEditable(){
+    const input = document.getElementById('katapataUnlockCode');
+    if (!input) return;
+    try {
+      if (!isUnlocked(pendingKind())) {
+        input.disabled = false;
+        input.readOnly = false;
+        input.style.pointerEvents = 'auto';
+        input.style.opacity = '1';
+      }
+    } catch (_) {}
+  }, true);
 
   window.katapataWebUnlockPatchInstalled = true;
 })();
