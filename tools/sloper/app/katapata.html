@@ -491,4 +491,433 @@ window.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 
+
+<script id="katapata-paid-snapshot-set-patch">
+/*
+ * KATAPATA paid snapshot set patch v0.5
+ * 1回の購入で「解除した時点の原型」について、通常PDFとA4分割PDFの両方を後から出せるようにする。
+ * 寸法・調整を変更した後は、現在の原型には新しい解除コードが必要。
+ * ただし、購入済み原型のPDFセットは保存済みスナップショットから出力できる。
+ */
+(function katapataInstallPaidSnapshotSetPatch(){
+  'use strict';
+
+  const BASE_UNLOCK_KEY = 'katapata_paid_unlocks_v1';
+  const SNAPSHOT_KEY = 'katapata_paid_print_snapshots_v2';
+
+  function safeJsonParse(value, fallback){
+    try { return value ? JSON.parse(value) : fallback; } catch (_) { return fallback; }
+  }
+  function loadJson(key, fallback){
+    try { return safeJsonParse(localStorage.getItem(key), fallback) || fallback; } catch (_) { return fallback; }
+  }
+  function saveJson(key, value){
+    try { localStorage.setItem(key, JSON.stringify(value || {})); } catch (_) {}
+  }
+  function payText(ja, en){
+    try { if (typeof katapataPayText === 'function') return katapataPayText(ja, en); } catch (_) {}
+    return ja;
+  }
+  function escapeHtml(value){
+    try { if (typeof katapataPayEscapeHtml === 'function') return katapataPayEscapeHtml(value); } catch (_) {}
+    return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+  function jsString(value){
+    try { if (typeof katapataPayJsString === 'function') return katapataPayJsString(value); } catch (_) {}
+    return String(value == null ? '' : value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
+  function normalizeText(value){
+    return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+  }
+  function fnv1a(str){
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return ('00000000' + h.toString(16)).slice(-8);
+  }
+  function productInfo(kind){
+    try {
+      if (typeof katapataPaymentProductInfo === 'function') return katapataPaymentProductInfo(kind || katapataPendingPaymentKind || '有料出力');
+    } catch (_) {}
+    return { key: 'tops', name: 'トップス原型PDF', price: '800円', package: '通常サイズPDF + A4分割印刷PDF', target: 'トップス' };
+  }
+  function productKey(kind){
+    const p = productInfo(kind);
+    return (p && p.key) || 'tops';
+  }
+  function baseUnlocked(kind){
+    const data = loadJson(BASE_UNLOCK_KEY, {});
+    return !!data[productKey(kind)];
+  }
+  function loadSnapshots(){
+    return loadJson(SNAPSHOT_KEY, {});
+  }
+  function saveSnapshots(map){
+    saveJson(SNAPSHOT_KEY, map || {});
+  }
+  function getSnapshot(kind){
+    const map = loadSnapshots();
+    const snap = map[productKey(kind)];
+    return snap && snap.svgText ? snap : null;
+  }
+  function saveSnapshot(kind, snapshot){
+    if (!snapshot || !snapshot.svgText) return;
+    const map = loadSnapshots();
+    map[productKey(kind)] = snapshot;
+    saveSnapshots(map);
+  }
+  function getCurrentSignature(){
+    const parts = [];
+    try {
+      const svg = document.getElementById('svg') || document.querySelector('.canvas svg');
+      if (svg) {
+        parts.push('svg-viewBox=' + normalizeText(svg.getAttribute('viewBox')));
+        parts.push('svg=' + normalizeText(svg.innerHTML).slice(0, 250000));
+      }
+    } catch (_) {}
+    try {
+      const fields = Array.from(document.querySelectorAll('input, select, textarea'))
+        .filter(el => el && el.id !== 'katapataUnlockCode')
+        .map(el => {
+          const key = el.id || el.name || el.getAttribute('aria-label') || el.placeholder || el.className || el.tagName;
+          const type = (el.type || '').toLowerCase();
+          const value = (type === 'checkbox' || type === 'radio') ? String(!!el.checked) : String(el.value || '');
+          return normalizeText(key) + '=' + normalizeText(value);
+        });
+      parts.push('fields=' + fields.join('|'));
+    } catch (_) {}
+    try {
+      const main = document.querySelector('.main');
+      if (main) {
+        parts.push('stage=' + normalizeText(main.getAttribute('data-stage')));
+        parts.push('part=' + normalizeText(main.getAttribute('data-adjust-part')));
+        parts.push('hasSleeve=' + normalizeText(main.getAttribute('data-has-sleeve')));
+      }
+    } catch (_) {}
+    return fnv1a(parts.join('\n'));
+  }
+  function snapshotMatches(kind){
+    const snap = getSnapshot(kind);
+    return !!(snap && snap.signature && snap.signature === getCurrentSignature());
+  }
+  function hasSnapshotFor(kind){
+    return !!getSnapshot(kind);
+  }
+
+  function cleanupPrintableSvg(printSvg){
+    try {
+      ['controlsLayer', 'mainHandles', 'deltaLayer'].forEach(id => {
+        const layer = printSvg.querySelector('#' + id);
+        if (layer) layer.innerHTML = '';
+      });
+    } catch (_) {}
+  }
+
+  function captureCurrentPrintSnapshot(kind){
+    const product = productInfo(kind);
+    const previous = {};
+    try {
+      previous.currentStage = currentStage;
+      previous.currentAdjustPart = currentAdjustPart;
+      previous.lowerViewMode = lowerPatternState && lowerPatternState.viewMode;
+      previous.confirmPreviewPart = confirmPreviewPart;
+      previous.dragging = typeof dragging !== 'undefined' ? dragging : null;
+    } catch (error) {
+      console.warn('KATAPATA snapshot: state capture failed', error);
+    }
+
+    try {
+      const partNow = previous.confirmPreviewPart;
+      const lowerNow = previous.lowerViewMode;
+      const isLower = (previous.currentStage === 'lower') || (typeof isLowerPreviewPart === 'function' && isLowerPreviewPart(partNow));
+
+      if (isLower) {
+        const targetLowerPart = (typeof isLowerPreviewPart === 'function' && isLowerPreviewPart(partNow)) ? partNow : lowerNow;
+        if (lowerPatternState) lowerPatternState.viewMode = targetLowerPart === 'pants' ? 'pants' : 'skirt';
+        confirmPreviewPart = lowerPatternState && lowerPatternState.viewMode ? lowerPatternState.viewMode : (targetLowerPart === 'pants' ? 'pants' : 'skirt');
+        currentStage = 'output';
+      } else {
+        currentStage = 'confirm';
+        currentAdjustPart = 'all';
+      }
+      try { dragging = null; } catch (_) {}
+      if (typeof render === 'function') render();
+
+      const svg = document.getElementById('svg');
+      if (!svg) return null;
+
+      const printSvg = svg.cloneNode(true);
+      printSvg.removeAttribute('width');
+      printSvg.removeAttribute('height');
+
+      let fittedViewBox = null;
+      try {
+        fittedViewBox = (typeof computePrintContentViewBox === 'function')
+          ? computePrintContentViewBox(svg, isLower ? 28 : 34, isLower ? 14 : 12, isLower ? 28 : 34, isLower ? 26 : 28)
+          : null;
+      } catch (_) {}
+      if (!fittedViewBox) {
+        try {
+          fittedViewBox = (typeof expandViewBoxString === 'function' && typeof getPrintBaseViewBox === 'function')
+            ? expandViewBoxString(getPrintBaseViewBox(), isLower ? 28 : 34, isLower ? 24 : 30)
+            : svg.getAttribute('viewBox');
+        } catch (_) {
+          fittedViewBox = svg.getAttribute('viewBox');
+        }
+      }
+
+      printSvg.setAttribute('viewBox', fittedViewBox || svg.getAttribute('viewBox') || '0 0 800 600');
+      printSvg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+      cleanupPrintableSvg(printSvg);
+
+      let size = null;
+      try { size = (typeof viewBoxMmSize === 'function') ? viewBoxMmSize(printSvg.getAttribute('viewBox')) : null; } catch (_) {}
+      if (!size || !Number.isFinite(size.width) || !Number.isFinite(size.height)) {
+        const nums = String(printSvg.getAttribute('viewBox') || '').trim().split(/\s+/).map(Number);
+        const unit = (typeof UNIT !== 'undefined' && Number.isFinite(UNIT)) ? UNIT : 7.8;
+        size = { width: Math.ceil(((nums[2] || 800) / unit) * 10 * 100) / 100, height: Math.ceil(((nums[3] || 600) / unit) * 10 * 100) / 100 };
+      }
+
+      const svgText = new XMLSerializer().serializeToString(printSvg);
+      return {
+        version: 2,
+        productKey: product.key,
+        productName: product.name,
+        target: product.target,
+        signature: getCurrentSignature(),
+        createdAt: new Date().toISOString(),
+        viewBox: printSvg.getAttribute('viewBox'),
+        fullWidthMm: size.width,
+        fullHeightMm: size.height,
+        isLowerPrint: !!isLower,
+        lowerLabel: (isLower && typeof lowerPrintTargetText === 'function') ? lowerPrintTargetText() : '',
+        svgText
+      };
+    } catch (error) {
+      console.error('KATAPATA snapshot capture failed', error);
+      return null;
+    } finally {
+      try {
+        if ('currentStage' in previous) currentStage = previous.currentStage;
+        if ('currentAdjustPart' in previous) currentAdjustPart = previous.currentAdjustPart;
+        if (lowerPatternState && 'lowerViewMode' in previous) lowerPatternState.viewMode = previous.lowerViewMode;
+        if ('confirmPreviewPart' in previous) confirmPreviewPart = previous.confirmPreviewPart;
+        if ('dragging' in previous) dragging = previous.dragging;
+        if (typeof render === 'function') render();
+      } catch (_) {}
+    }
+  }
+
+  function printHtmlCommon(){
+    return `
+  svg .outer { stroke: #111; stroke-width: 1.8; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+  svg .dart, svg .solid-guide { stroke: #111; stroke-width: 0.85; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+  svg .center { stroke: #aaa; stroke-width: .75; fill: none; stroke-dasharray: 3 3; }
+  svg .waist-dart { stroke: #c7c7c7; stroke-width: 0.78; fill: none; }
+  svg .waist-center { stroke: #d7d7d7; stroke-width: .45; fill: none; stroke-dasharray: 2 3.4; }
+  svg .rotation-line { stroke: #111; stroke-width: 1.0; fill: none; stroke-linecap: round; }
+  svg .guide, svg .pants-guide, svg .dim-line, svg .source-dart { stroke: #cfcfcf; stroke-width: .72; fill: none; }
+  svg .split-line, svg .split-dot, svg .split-text, svg .dart-preview, svg .dart-label, svg .dim-text, svg .handle, svg .main-handle, svg .control-line, svg .delta-text, svg .sample-scale-marker { display: none !important; }
+  svg text.label { fill: #555; font-size: 11px; font-weight: 800; }
+  button { border: 0; border-radius: 999px; background: #171717; color: #fff; font-weight: 800; padding: 8px 14px; cursor: pointer; }
+  button.sub { background: #8e7e68; }
+`;
+  }
+
+  function writeNormalSnapshotPrint(snap){
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      try { setSaveMessage('ポップアップがブロックされました。ブラウザ設定を確認してください。', 'warn'); } catch (_) {}
+      return;
+    }
+    const width = Number(snap.fullWidthMm) || 940;
+    const height = Number(snap.fullHeightMm) || 520;
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>KATAPATA | 購入済み通常サイズPDF</title><style>
+  @page { size: ${width}mm ${height}mm; margin: 0; }
+  html, body { margin: 0; padding: 0; background: #fff; color: #111; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .printPage { width: ${width}mm; height: ${height}mm; box-sizing: border-box; padding: 0; display: block; overflow: hidden; page-break-after: avoid; break-after: avoid; }
+  .scaleWrap { width: ${width}mm; height: ${height}mm; display: block; overflow: hidden; }
+  svg { width: ${width}mm; height: ${height}mm; display: block; overflow: visible; }
+  .printHeader { position: fixed; left: 10mm; top: 3mm; font-size: 10px; font-weight: 800; }
+  .printNote { position: fixed; right: 10mm; bottom: 6mm; font-size: 9px; color: #555; font-weight: 700; }
+  .noPrint { position: fixed; left: 10mm; bottom: 6mm; display: flex; gap: 8px; }
+  @media screen { html, body { width:auto; min-width:100%; min-height:100%; overflow:auto; background:#f8f5ef; } .printPage { transform-origin:top left; transform:scale(var(--screen-scale,1)); margin:14px; box-shadow:0 10px 36px rgba(0,0,0,.12); background:#fff; } .noPrint { position:fixed; left:10px; bottom:10px; right:10px; background:rgba(255,255,255,.92); border:1px solid #e4ded4; border-radius:14px; padding:8px; flex-wrap:wrap; } }
+  @media print { .noPrint { display:none !important; } }
+  ${printHtmlCommon()}
+</style></head><body>
+  <div class="printHeader">KATAPATA 通常サイズPDF</div>
+  <main class="printPage"><div class="scaleWrap">${snap.svgText}</div></main>
+  <div class="printNote">購入済み原型｜印刷後の寸法をご確認ください</div>
+  <div class="noPrint"><button onclick="window.print()">PDF保存 / 印刷</button><button class="sub" onclick="window.close()">閉じる</button></div>
+  <script>window.addEventListener('load',function(){function fit(){var p=document.querySelector('.printPage'); if(!p)return; var raw=p.offsetWidth || p.getBoundingClientRect().width; var scale=Math.min(1,Math.max(240,window.innerWidth-28)/raw); document.documentElement.style.setProperty('--screen-scale',String(scale)); p.style.marginBottom=Math.max(80,p.offsetHeight*scale+30)+'px';} window.addEventListener('resize',fit); fit(); if(!/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')){setTimeout(function(){window.print();},300);}});<\/script>
+</body></html>`);
+    printWindow.document.close();
+    try { setSaveMessage('購入済み原型の通常サイズPDF用画面を開きました。', 'ok'); } catch (_) {}
+  }
+
+  function writeTiledSnapshotPrint(snap){
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      try { setSaveMessage('ポップアップがブロックされました。ブラウザ設定を確認してください。', 'warn'); } catch (_) {}
+      return;
+    }
+    const fullWidthMm = Number(snap.fullWidthMm) || 940;
+    const fullHeightMm = Number(snap.fullHeightMm) || 520;
+    const pageWidthMm = 210;
+    const pageHeightMm = 297;
+    const pageMarginX = 10;
+    const pageMarginTop = 5;
+    const pageMarginBottom = 10;
+    const tileWidthMm = pageWidthMm - pageMarginX * 2;
+    const tileHeightMm = pageHeightMm - pageMarginTop - pageMarginBottom - 17;
+    const cols = Math.max(1, Math.ceil(fullWidthMm / tileWidthMm));
+    const rows = Math.max(1, Math.ceil(fullHeightMm / tileHeightMm));
+    const totalPages = cols * rows;
+    function neighborLabel(col, row, dc, dr){
+      const nc = col + dc, nr = row + dr;
+      if (nc < 0 || nr < 0 || nc >= cols || nr >= rows) return '';
+      return `${nc + 1}列 ${nr + 1}段 / P${nr * cols + nc + 1}`;
+    }
+    function edgeHint(direction, label){
+      if (!label) return '';
+      return `<div class="edgeHint edgeHint-${direction}">${escapeHtml(label)}</div>`;
+    }
+    let pagesHtml = '';
+    let page = 0;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        page++;
+        const offsetX = col * tileWidthMm;
+        const offsetY = row * tileHeightMm;
+        const remainW = Math.max(0, fullWidthMm - offsetX);
+        const remainH = Math.max(0, fullHeightMm - offsetY);
+        const thisW = Math.min(tileWidthMm, remainW);
+        const thisH = Math.min(tileHeightMm, remainH);
+        pagesHtml += `<section class="tilePage">
+          <div class="tileMeta"><div>KATAPATA A4分割印刷</div><div>Page ${page} / ${totalPages} ｜ ${col + 1}列 ${row + 1}段</div></div>
+          <div class="tileViewportWrap"><div class="tileViewport">
+            <div class="cropMark cropTL"></div><div class="cropMark cropTR"></div><div class="cropMark cropBL"></div><div class="cropMark cropBR"></div>
+            <div class="joinMark joinTop"></div><div class="joinMark joinBottom"></div><div class="joinMark joinLeft"></div><div class="joinMark joinRight"></div>
+            ${edgeHint('left', neighborLabel(col,row,-1,0))}${edgeHint('right', neighborLabel(col,row,1,0))}${edgeHint('top', neighborLabel(col,row,0,-1))}${edgeHint('bottom', neighborLabel(col,row,0,1))}
+            <div class="tileSvgFrame" style="left:-${offsetX}mm; top:-${offsetY}mm; width:${fullWidthMm}mm; height:${fullHeightMm}mm;">${snap.svgText}</div>
+            <div class="tileMaskRight" style="display:${thisW < tileWidthMm ? 'block' : 'none'}; width:${tileWidthMm - thisW}mm;"></div>
+            <div class="tileMaskBottom" style="display:${thisH < tileHeightMm ? 'block' : 'none'}; height:${tileHeightMm - thisH}mm;"></div>
+          </div></div>
+          <div class="tileFooter"><span>実寸A4分割｜倍率100%で印刷</span><span>購入済み原型</span><span>全体：約 ${fullWidthMm}mm × ${fullHeightMm}mm</span></div>
+        </section>`;
+      }
+    }
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>KATAPATA | 購入済みA4分割PDF</title><style>
+  @page { size: A4 portrait; margin: 0; } *{box-sizing:border-box} html, body{margin:0;padding:0;background:#fff;color:#111;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.tilePage{position:relative;width:210mm;height:286mm;min-height:0;padding:3mm 10mm 5mm 10mm;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;overflow:hidden}.tilePage:last-child{page-break-after:auto;break-after:auto}.tileMeta,.tileFooter{display:flex;justify-content:space-between;align-items:center;gap:4mm;font-size:7.5px;color:#555;font-weight:700;height:5mm;white-space:nowrap}.tileViewportWrap{width:190mm;height:264mm;display:flex;align-items:center;justify-content:center}.tileViewport{position:relative;width:190mm;height:264mm;overflow:hidden;border:.25mm solid #d5d5d5;background:#fff}.tileSvgFrame{position:absolute;overflow:visible;z-index:1}.tileSvgFrame svg{width:${fullWidthMm}mm;height:${fullHeightMm}mm;display:block;overflow:visible}.tileMaskRight,.tileMaskBottom{position:absolute;background:#fff;z-index:2;pointer-events:none}.tileMaskRight{top:0;right:0;height:264mm}.tileMaskBottom{left:0;bottom:0;width:190mm}.cropMark,.joinMark{position:absolute;z-index:3;pointer-events:none}.cropMark::before,.cropMark::after,.joinMark::before,.joinMark::after{content:"";position:absolute;background:#8e8e8e}.cropTL{left:0;top:0;width:6mm;height:5mm}.cropTR{right:0;top:0;width:6mm;height:6mm}.cropBL{left:0;bottom:0;width:6mm;height:6mm}.cropBR{right:0;bottom:0;width:6mm;height:6mm}.cropTL::before,.cropBL::before,.cropTR::before,.cropBR::before{width:6mm;height:.35mm;top:0;left:0}.cropTL::after,.cropBL::after,.cropTR::after,.cropBR::after{width:.35mm;height:6mm;top:0;left:0}.cropTR::before,.cropBR::before{right:0;left:auto}.cropTR::after,.cropBR::after{right:0;left:auto}.cropBL::before,.cropBR::before{bottom:0;top:auto}.cropBL::after,.cropBR::after{bottom:0;top:auto}.joinTop{top:0;left:50%;width:10mm;height:5mm;transform:translateX(-50%)}.joinBottom{bottom:0;left:50%;width:10mm;height:5mm;transform:translateX(-50%)}.joinLeft{left:0;top:50%;width:5mm;height:10mm;transform:translateY(-50%)}.joinRight{right:0;top:50%;width:5mm;height:10mm;transform:translateY(-50%)}.joinTop::before,.joinBottom::before{width:10mm;height:.35mm;left:0;top:50%;transform:translateY(-50%)}.joinTop::after,.joinBottom::after{width:.35mm;height:5mm;left:50%;top:0;transform:translateX(-50%)}.joinLeft::before,.joinRight::before{width:.35mm;height:10mm;left:50%;top:0;transform:translateX(-50%)}.joinLeft::after,.joinRight::after{width:5mm;height:.35mm;left:0;top:50%;transform:translateY(-50%)}.edgeHint{position:absolute;z-index:4;font-size:7.5px;font-weight:700;color:#666;background:rgba(255,255,255,.88);padding:.6mm 1.2mm;border-radius:999px;border:.2mm solid #ddd;white-space:nowrap;pointer-events:none}.edgeHint-left{left:2mm;top:50%;transform:translateY(-50%)}.edgeHint-right{right:2mm;top:50%;transform:translateY(-50%)}.edgeHint-top{top:2mm;left:50%;transform:translateX(-50%)}.edgeHint-bottom{bottom:2mm;left:50%;transform:translateX(-50%)}.noPrint{position:fixed;left:10mm;bottom:8mm;display:flex;gap:8px;z-index:10}.noPrint button{border:0;border-radius:999px;background:#171717;color:#fff;font-weight:800;padding:8px 14px;cursor:pointer}.noPrint .sub{background:#8e7e68}@media screen{html,body{width:auto;min-width:100%;min-height:100%;overflow:auto;background:#f8f5ef}.tilePage{margin:12px auto;background:#fff;box-shadow:0 10px 36px rgba(0,0,0,.12);transform-origin:top center;transform:scale(var(--screen-scale,1))}.noPrint{position:fixed;left:10px;bottom:10px;right:10px;background:rgba(255,255,255,.92);border:1px solid #e4ded4;border-radius:14px;padding:8px;flex-wrap:wrap}}@media print{.noPrint{display:none!important}}
+  ${printHtmlCommon()}
+</style></head><body class="${/iPhone|iPad|iPod/i.test(navigator.userAgent || '') ? 'iosPrint' : ''}">${pagesHtml}<div class="noPrint"><button onclick="window.print()">PDF保存 / 印刷</button><button class="sub" onclick="window.close()">閉じる</button></div><script>window.addEventListener('load',function(){function fit(){var p=document.querySelector('.tilePage'); if(!p)return; var raw=p.offsetWidth || p.getBoundingClientRect().width; var scale=Math.min(1,Math.max(240,window.innerWidth-28)/raw); document.documentElement.style.setProperty('--screen-scale',String(scale));} window.addEventListener('resize',fit); fit(); if(!/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')){setTimeout(function(){window.print();},300);}});<\/script></body></html>`);
+    printWindow.document.close();
+    try { setSaveMessage('購入済み原型のA4分割印刷用画面を開きました。', 'ok'); } catch (_) {}
+  }
+
+  function openSnapshotPrint(kind, mode){
+    const snap = getSnapshot(kind);
+    if (!snap) {
+      try { setSaveMessage('購入済み原型の保存データが見つかりません。もう一度解除コードを入力してください。', 'warn'); } catch (_) {}
+      return;
+    }
+    try { if (typeof katapataClosePaymentConfirm === 'function') katapataClosePaymentConfirm(); } catch (_) {}
+    if (mode === 'tiled') writeTiledSnapshotPrint(snap);
+    else writeNormalSnapshotPrint(snap);
+  }
+
+  function snapshotBoxHtml(kind){
+    const snap = getSnapshot(kind);
+    if (!snap || snapshotMatches(kind)) return '';
+    const safeKind = jsString(kind || '有料出力');
+    const created = snap.createdAt ? new Date(snap.createdAt) : null;
+    const dateText = created && !Number.isNaN(created.getTime()) ? created.toLocaleString() : '';
+    return `<section id="katapataPurchasedSnapshotBox" class="katapataPaySection katapataPurchasedSnapshotBox" style="border-color:#c9dfc5;background:#f1faef;">
+      <h3>${payText('購入済み原型のPDF出力','Purchased draft PDF output')}</h3>
+      <p class="katapataUnlockStatus" style="margin-bottom:8px;">${payText('現在の原型は、購入時点から変更されています。変更後の原型を出力するには新しい解除コードが必要です。','The current draft has changed since purchase. A new unlock code is required for the changed draft.')}</p>
+      <p class="katapataUnlockIntro">${payText('まだ出力していないPDFがある場合は、購入時点の原型から通常PDF/A4分割PDFを出力できます。','If you have not exported one of the PDFs yet, you can export the purchased draft as full-size or A4 tiled PDF.')}${dateText ? `<br><small>${escapeHtml(dateText)}</small>` : ''}</p>
+      <div class="katapataUnlockRow" style="grid-template-columns:1fr 1fr;">
+        <button type="button" onclick="katapataOpenPurchasedSnapshotPrint('${safeKind}','normal')">${payText('購入済み通常PDF','Purchased full-size PDF')}</button>
+        <button type="button" onclick="katapataOpenPurchasedSnapshotPrint('${safeKind}','tiled')">${payText('購入済みA4分割PDF','Purchased A4 tiled PDF')}</button>
+      </div>
+    </section>`;
+  }
+
+  function refreshSnapshotBox(kind){
+    const overlay = document.getElementById('katapataPayOverlay');
+    if (!overlay) return;
+    const old = document.getElementById('katapataPurchasedSnapshotBox');
+    if (old) old.remove();
+    const html = snapshotBoxHtml(kind || (typeof katapataPendingPaymentKind !== 'undefined' ? katapataPendingPaymentKind : '有料出力'));
+    if (!html) return;
+    const unlockSection = overlay.querySelector('.katapataPayUnlock');
+    if (unlockSection) unlockSection.insertAdjacentHTML('beforebegin', html);
+    const msg = document.getElementById('katapataUnlockMessage');
+    if (msg) {
+      msg.className = 'katapataUnlockMessage warn';
+      msg.innerHTML = payText('変更後の原型をPDF出力する場合は、新しい解除コードを入力してください。', 'Enter a new unlock code to export the changed draft.');
+    }
+  }
+
+  const previousMark = (typeof katapataMarkPaidUnlocked === 'function') ? katapataMarkPaidUnlocked : null;
+  window.katapataMarkPaidUnlocked = function katapataMarkPaidUnlockedWithSnapshot(kind){
+    const result = previousMark ? previousMark.apply(this, arguments) : productKey(kind);
+    try {
+      const snap = captureCurrentPrintSnapshot(kind);
+      if (snap) saveSnapshot(kind, snap);
+    } catch (error) {
+      console.error('KATAPATA snapshot save failed', error);
+    }
+    return result;
+  };
+
+  window.katapataIsPaidUnlocked = function katapataIsPaidUnlockedCurrentDesignOnly(kind){
+    if (!baseUnlocked(kind)) return false;
+    return snapshotMatches(kind);
+  };
+
+  const previousOpenPayment = (typeof katapataOpenPaymentConfirm === 'function') ? katapataOpenPaymentConfirm : null;
+  if (previousOpenPayment) {
+    window.katapataOpenPaymentConfirm = function katapataOpenPaymentConfirmWithSnapshot(kind){
+      const result = previousOpenPayment.apply(this, arguments);
+      try { refreshSnapshotBox(kind); } catch (_) {}
+      return result;
+    };
+  }
+
+  const previousUpdateStatus = (typeof katapataUpdateUnlockStatus === 'function') ? katapataUpdateUnlockStatus : null;
+  if (previousUpdateStatus) {
+    window.katapataUpdateUnlockStatus = function katapataUpdateUnlockStatusWithSnapshot(kind){
+      const result = previousUpdateStatus.apply(this, arguments);
+      try { refreshSnapshotBox(kind); } catch (_) {}
+      return result;
+    };
+  }
+
+  // 変更後に通常/A4ボタンが直接押された場合でも、購入済みスナップショットがあれば案内を出す。
+  const previousGuard = (typeof katapataGuardPaidDirectExport === 'function') ? katapataGuardPaidDirectExport : null;
+  if (previousGuard) {
+    window.katapataGuardPaidDirectExport = function katapataGuardPaidDirectExportSnapshotAware(){
+      const kind = (typeof katapataCurrentPaidKindForOutput === 'function') ? katapataCurrentPaidKindForOutput() : '有料出力';
+      if (window.katapataIsPaidUnlocked(kind)) return true;
+      if (baseUnlocked(kind) && hasSnapshotFor(kind)) {
+        try {
+          if (typeof runPaidExport === 'function') runPaidExport(kind, null);
+          else if (typeof katapataOpenPaymentConfirm === 'function') katapataOpenPaymentConfirm(kind);
+        } catch (_) {}
+        return false;
+      }
+      return previousGuard.apply(this, arguments);
+    };
+  }
+
+  window.katapataOpenPurchasedSnapshotPrint = openSnapshotPrint;
+  window.katapataCapturePaidPrintSnapshot = captureCurrentPrintSnapshot;
+  window.katapataPaidSnapshotSetPatchInstalled = true;
+})();
+</script>
 </body></html>
