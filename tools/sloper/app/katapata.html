@@ -26,7 +26,7 @@
 window.KATAPATA_CHECKOUT_URL = window.KATAPATA_CHECKOUT_URL || "";
 
 // Apps Script Webアプリの /exec URLを入れると、解除コードをスプレッドシート台帳で照合します。
-// 例: window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/**ここを変更**/exec";
+// 例: window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/xxxxxxxx/exec";
 window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwr-FZdWAUA93Znch2-w-dPIDWqo6q_oaMnDS3MjB2ORNSlMyrGJ32NodDfSxGeU2SYQA/exec";
 
 // 解除コードそのものではなく、SHA-256ハッシュを入れてください。
@@ -278,4 +278,217 @@ window.addEventListener("DOMContentLoaded", () => {
 })();
 
 </script>
+<script id="katapata-paid-design-lock-patch">
+/*
+ * KATAPATA paid design lock patch v0.4
+ * 解除後に寸法・調整・描画内容が変わった場合、前回の解除状態を無効化します。
+ * これにより、1つの解除コードで別内容のPDFを続けて出力することを防ぎます。
+ */
+(function katapataInstallPaidDesignLockPatch(){
+  'use strict';
+
+  const SIG_KEY = 'katapata_paid_unlock_signatures_v1';
+  const STALE_NOTICE_KEY = 'katapata_paid_unlock_stale_notice_v1';
+
+  function safeJsonParse(value, fallback){
+    try { return value ? JSON.parse(value) : fallback; } catch (_) { return fallback; }
+  }
+
+  function readSigMap(){
+    try { return safeJsonParse(localStorage.getItem(SIG_KEY), {}) || {}; } catch (_) { return {}; }
+  }
+
+  function writeSigMap(map){
+    try { localStorage.setItem(SIG_KEY, JSON.stringify(map || {})); } catch (_) {}
+  }
+
+  function productInfo(kind){
+    try {
+      if (typeof katapataPaymentProductInfo === 'function') return katapataPaymentProductInfo(kind || katapataPendingPaymentKind || '有料出力');
+    } catch (_) {}
+    return { key: 'tops', name: 'トップス原型PDF' };
+  }
+
+  function payText(ja, en){
+    try { if (typeof katapataPayText === 'function') return katapataPayText(ja, en); } catch (_) {}
+    return ja;
+  }
+
+  function normalizeText(value){
+    return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+  }
+
+  function fnv1a(str){
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return ('00000000' + h.toString(16)).slice(-8);
+  }
+
+  function getDesignSignature(){
+    const parts = [];
+
+    // 現在表示中の製図SVG。寸法変更・調整点変更・表示対象変更が反映されやすい。
+    try {
+      const svg = document.getElementById('svg') || document.querySelector('.canvas svg');
+      if (svg) {
+        parts.push('svg-viewBox=' + normalizeText(svg.getAttribute('viewBox')));
+        parts.push('svg=' + normalizeText(svg.innerHTML).slice(0, 250000));
+      }
+    } catch (_) {}
+
+    // 寸法入力欄・調整欄。SVG反映前の変更も拾う。
+    try {
+      const fields = Array.from(document.querySelectorAll('input, select, textarea'))
+        .filter(el => el && el.id !== 'katapataUnlockCode')
+        .map(el => {
+          const key = el.id || el.name || el.getAttribute('aria-label') || el.placeholder || el.className || el.tagName;
+          const type = (el.type || '').toLowerCase();
+          const value = (type === 'checkbox' || type === 'radio') ? String(!!el.checked) : String(el.value || '');
+          return normalizeText(key) + '=' + normalizeText(value);
+        });
+      parts.push('fields=' + fields.join('|'));
+    } catch (_) {}
+
+    // 現在の画面・出力対象など。
+    try {
+      const main = document.querySelector('.main');
+      if (main) {
+        parts.push('stage=' + normalizeText(main.getAttribute('data-stage')));
+        parts.push('part=' + normalizeText(main.getAttribute('data-adjust-part')));
+        parts.push('hasSleeve=' + normalizeText(main.getAttribute('data-has-sleeve')));
+      }
+    } catch (_) {}
+
+    return fnv1a(parts.join('\n'));
+  }
+
+  function rememberSignature(kind){
+    const product = productInfo(kind);
+    const map = readSigMap();
+    map[product.key] = getDesignSignature();
+    writeSigMap(map);
+  }
+
+  function signatureMatches(kind){
+    const product = productInfo(kind);
+    const map = readSigMap();
+    const saved = map[product.key];
+    if (!saved) return false;
+    return saved === getDesignSignature();
+  }
+
+  function clearSignature(kind){
+    const product = productInfo(kind);
+    const map = readSigMap();
+    if (product && product.key) delete map[product.key];
+    writeSigMap(map);
+  }
+
+  function markStaleNotice(kind){
+    try {
+      const product = productInfo(kind);
+      sessionStorage.setItem(STALE_NOTICE_KEY + ':' + product.key, '1');
+    } catch (_) {}
+  }
+
+  function takeStaleNotice(kind){
+    try {
+      const product = productInfo(kind);
+      const key = STALE_NOTICE_KEY + ':' + product.key;
+      const exists = sessionStorage.getItem(key) === '1';
+      if (exists) sessionStorage.removeItem(key);
+      return exists;
+    } catch (_) { return false; }
+  }
+
+  const originalIsPaidUnlocked = (typeof katapataIsPaidUnlocked === 'function') ? katapataIsPaidUnlocked : null;
+  const originalMarkPaidUnlocked = (typeof katapataMarkPaidUnlocked === 'function') ? katapataMarkPaidUnlocked : null;
+  const originalUpdateUnlockStatus = (typeof katapataUpdateUnlockStatus === 'function') ? katapataUpdateUnlockStatus : null;
+
+  if (originalMarkPaidUnlocked) {
+    window.katapataMarkPaidUnlocked = function patchedMarkPaidUnlocked(kind){
+      const result = originalMarkPaidUnlocked.apply(this, arguments);
+      rememberSignature(kind);
+      return result;
+    };
+  }
+
+  if (originalIsPaidUnlocked) {
+    window.katapataIsPaidUnlocked = function patchedIsPaidUnlocked(kind){
+      const baseUnlocked = !!originalIsPaidUnlocked.apply(this, arguments);
+      if (!baseUnlocked) return false;
+      const matched = signatureMatches(kind);
+      if (!matched) markStaleNotice(kind);
+      return matched;
+    };
+  }
+
+  if (originalUpdateUnlockStatus) {
+    window.katapataUpdateUnlockStatus = function patchedUpdateUnlockStatus(kind){
+      const result = originalUpdateUnlockStatus.apply(this, arguments);
+      if (takeStaleNotice(kind)) {
+        try {
+          const el = document.getElementById('katapataUnlockMessage');
+          if (el) {
+            el.className = 'katapataUnlockMessage warn';
+            el.innerHTML = payText(
+              '前回の解除後に原型内容が変更されています。変更後のPDF出力には、新しい解除コードが必要です。',
+              'The draft has changed since the previous unlock. A new unlock code is required for this version.'
+            );
+          }
+        } catch (_) {}
+      }
+      return result;
+    };
+  }
+
+  function invalidatePaidSignatures(reason){
+    // 実際の解除履歴そのものは消さず、署名だけ消して「前回の解除はこの原型には使えない」状態にする。
+    try { localStorage.removeItem(SIG_KEY); } catch (_) {}
+    try { window.katapataPaidDesignLockLastReason = reason || 'changed'; } catch (_) {}
+  }
+
+  // 寸法入力・調整入力が変わったら前回解除を無効化。
+  document.addEventListener('input', function(e){
+    const t = e && e.target;
+    if (!t || t.id === 'katapataUnlockCode') return;
+    if (t.matches && t.matches('input, select, textarea')) invalidatePaidSignatures('input-change');
+  }, true);
+
+  document.addEventListener('change', function(e){
+    const t = e && e.target;
+    if (!t || t.id === 'katapataUnlockCode') return;
+    if (t.matches && t.matches('input, select, textarea')) invalidatePaidSignatures('field-change');
+  }, true);
+
+  // 「原型を作成」「作成」「再作成」系のボタン操作で無効化。
+  document.addEventListener('click', function(e){
+    const btn = e && e.target && e.target.closest ? e.target.closest('button') : null;
+    if (!btn) return;
+    const text = normalizeText(btn.textContent || btn.value || '');
+    if (/原型を作成|作成する|再作成|Create|Generate|Draft/.test(text)) {
+      invalidatePaidSignatures('create-draft');
+    }
+  }, true);
+
+  // SVG上のドラッグ調整が入った場合も、次回の有料出力は再解除にする。
+  let svgPointerStarted = false;
+  document.addEventListener('pointerdown', function(e){
+    const target = e && e.target;
+    if (target && target.closest && target.closest('.canvas svg')) svgPointerStarted = true;
+  }, true);
+  document.addEventListener('pointerup', function(){
+    if (svgPointerStarted) invalidatePaidSignatures('svg-adjust');
+    svgPointerStarted = false;
+  }, true);
+
+  window.katapataInvalidatePaidDesignUnlocks = invalidatePaidSignatures;
+  window.katapataGetPaidDesignSignature = getDesignSignature;
+  window.katapataPaidDesignLockPatchInstalled = true;
+})();
+</script>
+
 </body></html>
