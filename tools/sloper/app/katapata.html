@@ -1676,4 +1676,193 @@ window.addEventListener("DOMContentLoaded", () => {
   window.katapataPurchaseScreenCleanV10Installed = true;
 })();
 </script>
+
+<script id="katapata-v11-separate-purchase-output-ui">
+(function katapataV11SeparatePurchaseAndOutput(){
+  'use strict';
+  if (window.katapataV11SeparatePurchaseAndOutputInstalled) return;
+  window.katapataV11SeparatePurchaseAndOutputInstalled = true;
+
+  function t(ja, en){
+    try { if (typeof katapataPayText === 'function') return katapataPayText(ja, en); } catch (_) {}
+    return ja;
+  }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+  function productInfo(kind){
+    try { if (typeof katapataPaymentProductInfo === 'function') return katapataPaymentProductInfo(kind || currentProductKey()); } catch (_) {}
+    const k = normalizeKind(kind || 'tops');
+    if (k === 'skirt') return { key:'skirt', name:'スカート原型PDF', target:'スカート' };
+    if (k === 'pants') return { key:'pants', name:'パンツ原型PDF', target:'パンツ' };
+    return { key:'tops', name:'トップス原型PDF', target:'トップス' };
+  }
+  function normalizeKind(kind){
+    const raw = String(kind || '').toLowerCase();
+    if (raw.includes('skirt') || raw.includes('スカート')) return 'skirt';
+    if (raw.includes('pants') || raw.includes('パンツ')) return 'pants';
+    return 'tops';
+  }
+  function currentProductKey(){
+    try { if (typeof katapataCurrentPaidKindForOutput === 'function') return normalizeKind(katapataCurrentPaidKindForOutput()); } catch (_) {}
+    try { if (window.katapataPendingPaymentKind) return normalizeKind(window.katapataPendingPaymentKind); } catch (_) {}
+    const active = document.querySelector('.katapataOutputPaidProductBtn.active');
+    if (active && active.dataset.product) return normalizeKind(active.dataset.product);
+    return 'tops';
+  }
+  function setCurrentProduct(key){
+    key = normalizeKind(key);
+    try { window.katapataPendingPaymentKind = key; } catch (_) {}
+    try { window.katapataSelectedPaidOutputProduct = key; } catch (_) {}
+    document.querySelectorAll('.katapataOutputPaidProductBtn').forEach(btn => {
+      btn.classList.toggle('active', normalizeKind(btn.dataset.product) === key);
+    });
+    refreshOutputPanelStatus();
+  }
+  function isOutputStage(){
+    const main = document.querySelector('.main');
+    if (main && String(main.getAttribute('data-stage') || '').toLowerCase() === 'output') return true;
+    const active = document.querySelector('.appStagebar .stage.active[data-stage="output"], .stage.active[data-stage="output"]');
+    return !!active;
+  }
+  function ensureStyle(){
+    if (document.getElementById('katapataV11SeparatePurchaseOutputStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'katapataV11SeparatePurchaseOutputStyle';
+    style.textContent = `
+      /* 購入確認画面は「これから購入する人」専用にする */
+      #katapataPayOverlay .katapataPayUnlock{display:none!important;}
+      #katapataPayOverlay #katapataPurchaseSaveBox .katapataPurchaseSaveActions{grid-template-columns:1fr!important;}
+      #katapataPayOverlay #katapataPurchaseSaveBox .katapataPurchaseSaveActions button.sub{display:none!important;}
+      #katapataPayOverlay #katapataPurchaseSaveBox .katapataPurchaseSaveNote{font-size:11.5px;}
+      .katapataOutputPaidPanel{border-color:#cfe1c9!important;background:linear-gradient(180deg,#f5fcf2 0%,#fffdf8 100%)!important;}
+      .katapataOutputPaidLead{margin:0 0 8px;font-size:10px;line-height:1.55;color:#466240;font-weight:780;}
+      .katapataOutputPaidProducts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0;}
+      .katapataOutputPaidProductBtn{height:30px!important;border-radius:12px!important;padding:0 6px!important;background:#fbf8f2!important;color:#6b5d4d!important;border:1px solid #ddd4c7!important;font-size:10px!important;font-weight:950!important;}
+      .katapataOutputPaidProductBtn.active{background:#171717!important;color:#fff!important;border-color:#171717!important;}
+      .katapataOutputUnlockBox{display:grid;gap:7px;margin-top:8px;padding:8px;border-radius:13px;background:#fff;border:1px solid #e4ded4;}
+      .katapataOutputUnlockInput{width:100%;height:34px;box-sizing:border-box;border:1px solid #ddd4c7;border-radius:12px;background:#fffdf8;padding:0 10px;font-size:12px;font-weight:900;letter-spacing:.04em;}
+      .katapataOutputUnlockActions{display:grid;grid-template-columns:1fr;gap:6px;}
+      .katapataOutputUnlockActions button{height:32px!important;border-radius:12px!important;font-size:10px!important;padding:0 8px!important;}
+      .katapataOutputPurchasedActions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;}
+      .katapataOutputPurchasedActions button{height:32px!important;border-radius:12px!important;font-size:10px!important;padding:0 8px!important;}
+      .katapataOutputSavedDataRow{display:grid;grid-template-columns:1fr;gap:6px;margin-top:8px;}
+      .katapataOutputSavedDataRow button{height:32px!important;border-radius:12px!important;font-size:10px!important;padding:0 8px!important;background:#8e7e68!important;}
+      #katapataOutputPaidPanel .katapataUnlockMessage{min-height:18px;margin:6px 0 0;font-size:9.5px;line-height:1.45;font-weight:820;}
+      @media(max-width:560px){.katapataOutputPaidProducts,.katapataOutputPurchasedActions{grid-template-columns:1fr}.katapataOutputUnlockActions button,.katapataOutputSavedDataRow button,.katapataOutputPurchasedActions button{height:34px!important;}}
+    `;
+    document.head.appendChild(style);
+  }
+  function hidePurchaseOnlyExtras(){
+    ensureStyle();
+    const overlay = document.getElementById('katapataPayOverlay');
+    if (!overlay) return;
+    overlay.querySelectorAll('.katapataPayUnlock').forEach(el => { el.style.display = 'none'; });
+    const importBtn = overlay.querySelector('#katapataPurchaseSaveBox .katapataPurchaseSaveActions button.sub');
+    if (importBtn) importBtn.style.display = 'none';
+    const saveActions = overlay.querySelector('#katapataPurchaseSaveBox .katapataPurchaseSaveActions');
+    if (saveActions) saveActions.style.gridTemplateColumns = '1fr';
+  }
+  function hasSnapshot(key){
+    try {
+      if (typeof katapataGetPurchasedSnapshotForOutput === 'function') return !!katapataGetPurchasedSnapshotForOutput(key);
+    } catch (_) {}
+    try {
+      const raw = localStorage.getItem('katapata_paid_print_snapshots_v1') || localStorage.getItem('katapata_paid_print_snapshots');
+      const map = raw ? JSON.parse(raw) : null;
+      return !!(map && map[normalizeKind(key)]);
+    } catch (_) { return false; }
+  }
+  function renderOutputPanel(){
+    ensureStyle();
+    if (!isOutputStage()) {
+      const old = document.getElementById('katapataOutputPaidPanel');
+      if (old) old.remove();
+      return;
+    }
+    const side = document.getElementById('sideContent') || document.querySelector('.side');
+    if (!side) return;
+    let panel = document.getElementById('katapataOutputPaidPanel');
+    const key = normalizeKind(window.katapataSelectedPaidOutputProduct || currentProductKey());
+    const p = productInfo(key);
+    const buttons = [
+      ['tops', t('トップス','Tops')],
+      ['skirt', t('スカート','Skirt')],
+      ['pants', t('パンツ','Pants')]
+    ].map(([k,label]) => `<button type="button" class="katapataOutputPaidProductBtn ${k===key?'active':''}" data-product="${k}" onclick="katapataOutputSelectPaidProduct('${k}')">${label}</button>`).join('');
+    const snapshotHint = hasSnapshot(key)
+      ? t('購入済み原型データがあります。通常PDF/A4分割PDFを出力できます。','Purchased draft data is available. You can export both PDF types.')
+      : t('解除コードを入力するか、出力可能な保存データを読み込んでください。','Enter an unlock code or import output-capable saved data.');
+    const html = `
+      <h2>${t('支払い済み・保存データから出力','Export after payment / saved data')}</h2>
+      <p class="katapataOutputPaidLead">${t('購入後に届いた解除コードはここで入力します。保存済みの .katapata からPDF出力する場合も、この出力画面で読み込みます。','Enter the unlock code here after purchase. Import saved .katapata data here when exporting from saved data.')}</p>
+      <div class="katapataOutputPaidProducts">${buttons}</div>
+      <div class="katapataOutputUnlockBox">
+        <p id="katapataUnlockStatus" class="katapataOutputPaidLead">${esc(snapshotHint)}</p>
+        <input id="katapataUnlockCode" class="katapataOutputUnlockInput" type="text" autocomplete="one-time-code" placeholder="${t('解除コードを入力','Enter unlock code')}">
+        <div class="katapataOutputUnlockActions">
+          <button id="katapataUnlockButton" type="button" onclick="katapataOutputTryUnlockCode()">${t('解除コードを照合する','Verify unlock code')}</button>
+        </div>
+        <p id="katapataUnlockMessage" class="katapataUnlockMessage"></p>
+      </div>
+      <div class="katapataOutputPurchasedActions">
+        <button type="button" onclick="katapataOpenPurchasedSnapshotPrint && katapataOpenPurchasedSnapshotPrint('${key}','normal')">${t('購入済み通常PDF','Purchased full-size PDF')}</button>
+        <button type="button" onclick="katapataOpenPurchasedSnapshotPrint && katapataOpenPurchasedSnapshotPrint('${key}','tiled')">${t('購入済みA4分割PDF','Purchased A4 tiled PDF')}</button>
+      </div>
+      <div class="katapataOutputSavedDataRow">
+        <button type="button" onclick="katapataLoadOutputCapableSavedData && katapataLoadOutputCapableSavedData('${key}')">${t('保存データを読み込む','Import saved data')}</button>
+      </div>
+    `;
+    if (!panel) {
+      panel = document.createElement('section');
+      panel.id = 'katapataOutputPaidPanel';
+      panel.className = 'panel katapataOutputPaidPanel';
+      side.insertBefore(panel, side.firstChild);
+    }
+    panel.innerHTML = html;
+    try { if (typeof katapataUpdateUnlockStatus === 'function') katapataUpdateUnlockStatus(key); } catch (_) {}
+  }
+  function refreshOutputPanelStatus(){
+    const panel = document.getElementById('katapataOutputPaidPanel');
+    if (!panel) return;
+    const key = normalizeKind(window.katapataSelectedPaidOutputProduct || currentProductKey());
+    const status = document.getElementById('katapataUnlockStatus');
+    if (status) {
+      status.textContent = hasSnapshot(key)
+        ? t('購入済み原型データがあります。通常PDF/A4分割PDFを出力できます。','Purchased draft data is available. You can export both PDF types.')
+        : t('解除コードを入力するか、出力可能な保存データを読み込んでください。','Enter an unlock code or import output-capable saved data.');
+    }
+  }
+  window.katapataOutputSelectPaidProduct = function(key){
+    setCurrentProduct(key);
+  };
+  window.katapataOutputTryUnlockCode = function(){
+    const key = normalizeKind(window.katapataSelectedPaidOutputProduct || currentProductKey());
+    try { window.katapataPendingPaymentKind = key; } catch (_) {}
+    try { window.katapataPendingPaidExportFn = null; } catch (_) {}
+    const btn = document.getElementById('katapataUnlockButton');
+    if (btn) btn.disabled = false;
+    if (typeof katapataTryUnlockCode === 'function') katapataTryUnlockCode();
+    setTimeout(renderOutputPanel, 900);
+    setTimeout(renderOutputPanel, 1800);
+  };
+
+  const oldRenderSideContent = window.renderSideContent;
+  if (typeof oldRenderSideContent === 'function' && !oldRenderSideContent.__katapataV11Wrapped) {
+    const wrapped = function(){
+      const result = oldRenderSideContent.apply(this, arguments);
+      setTimeout(() => { hidePurchaseOnlyExtras(); renderOutputPanel(); }, 0);
+      return result;
+    };
+    wrapped.__katapataV11Wrapped = true;
+    window.renderSideContent = wrapped;
+  }
+  document.addEventListener('click', () => setTimeout(() => { hidePurchaseOnlyExtras(); renderOutputPanel(); }, 60), true);
+  document.addEventListener('input', () => setTimeout(() => { hidePurchaseOnlyExtras(); }, 60), true);
+  const obs = new MutationObserver(() => { hidePurchaseOnlyExtras(); renderOutputPanel(); });
+  try { obs.observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class','data-stage','style'] }); } catch (_) {}
+  setTimeout(() => { hidePurchaseOnlyExtras(); renderOutputPanel(); }, 300);
+  setTimeout(() => { hidePurchaseOnlyExtras(); renderOutputPanel(); }, 1200);
+})();
+</script>
 </body></html>
