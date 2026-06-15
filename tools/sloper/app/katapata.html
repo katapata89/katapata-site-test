@@ -49,7 +49,6 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 <script id="katapata-web-unlock-patch">
-
 window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwr-FZdWAUA93Znch2-w-dPIDWqo6q_oaMnDS3MjB2ORNSlMyrGJ32NodDfSxGeU2SYQA/exec";
 
 /*
@@ -762,6 +761,149 @@ window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw
   <div class="printNote">購入済み原型｜印刷後の寸法をご確認ください</div>
   <div class="noPrint"><button onclick="window.print()">PDF保存 / 印刷</button><button class="sub" onclick="window.close()">閉じる</button></div>
   <script>window.addEventListener('load',function(){function fit(){var p=document.querySelector('.printPage'); if(!p)return; var raw=p.offsetWidth || p.getBoundingClientRect().width; var scale=Math.min(1,Math.max(240,window.innerWidth-28)/raw); document.documentElement.style.setProperty('--screen-scale',String(scale)); p.style.marginBottom=Math.max(80,p.offsetHeight*scale+30)+'px';} window.addEventListener('resize',fit); fit(); if(!/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')){setTimeout(function(){window.print();},300);}});<\/script>
+
+
+<script id="katapata-v12f-output-panel-fix">
+/*
+ * KATAPATA v12f output panel fix
+ * 解除後に元の出力画面へ戻っても、購入済みスナップショットの通常PDF/A4分割PDFを確実に出せるよう、
+ * 出力画面側に「購入済みPDF出力」パネルを追加する。
+ */
+(function(){
+  'use strict';
+  if (window.katapataV12fOutputPanelFixInstalled) return;
+  window.katapataV12fOutputPanelFixInstalled = true;
+
+  const SNAPSHOT_KEY = 'katapata_paid_print_snapshots_v2';
+  const PRODUCT_NAMES = {
+    tops: 'トップス原型PDF',
+    skirt: 'スカート原型PDF',
+    pants: 'パンツ原型PDF'
+  };
+
+  function payText(ja, en){
+    try { if (typeof katapataPayText === 'function') return katapataPayText(ja, en); } catch (_) {}
+    return ja;
+  }
+  function escapeHtml(value){
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+    });
+  }
+  function loadSnapshots(){
+    try { return JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || '{}') || {}; } catch (_) { return {}; }
+  }
+  function hasPrintableSnapshot(snap){
+    return !!(snap && snap.svgText && String(snap.svgText).indexOf('<svg') !== -1);
+  }
+  function isOutputStage(){
+    try {
+      const main = document.querySelector('.main');
+      return !!(main && main.getAttribute('data-stage') === 'output');
+    } catch (_) { return false; }
+  }
+  function setSaveMessageSafe(html, mode){
+    try { if (typeof setSaveMessage === 'function') setSaveMessage(html, mode || ''); } catch (_) {}
+  }
+  function openPurchased(productKey, mode){
+    const snaps = loadSnapshots();
+    if (!hasPrintableSnapshot(snaps[productKey])) {
+      setSaveMessageSafe(
+        payText('購入済み原型の保存データが見つかりません。もう一度、保存済みデータを読み込むか、解除コードを入力してください。','Purchased draft data was not found. Import the saved data or enter the unlock code again.'),
+        'warn'
+      );
+      return;
+    }
+    try {
+      if (typeof window.katapataOpenPurchasedSnapshotPrint === 'function') {
+        window.katapataOpenPurchasedSnapshotPrint(productKey, mode);
+        return;
+      }
+    } catch (error) {
+      console.error(error);
+    }
+    setSaveMessageSafe(
+      payText('購入済みPDF出力機能の準備ができていません。ページを再読み込みしてお試しください。','Purchased PDF export is not ready. Reload the page and try again.'),
+      'bad'
+    );
+  }
+  window.katapataOpenPurchasedOutputFromPanel = openPurchased;
+
+  function panelHtml(){
+    const snaps = loadSnapshots();
+    const keys = ['tops','skirt','pants'].filter(function(key){ return hasPrintableSnapshot(snaps[key]); });
+    if (!keys.length) return '';
+
+    const items = keys.map(function(key){
+      const snap = snaps[key];
+      let dateText = '';
+      try {
+        const d = snap.createdAt ? new Date(snap.createdAt) : null;
+        if (d && !Number.isNaN(d.getTime())) dateText = d.toLocaleString();
+      } catch (_) {}
+      const name = PRODUCT_NAMES[key] || (snap.productName || key);
+      return '<div class="katapataPurchasedOutputItem" style="border:1px solid #d8e8d2;background:#fbfff9;border-radius:13px;padding:9px 10px;margin-top:8px;">'
+        + '<strong style="display:block;font-size:11px;margin-bottom:4px;color:#2d4f2f;">' + escapeHtml(name) + '</strong>'
+        + (dateText ? '<small style="display:block;font-size:9px;color:#6f7a68;margin-bottom:7px;">購入済み原型: ' + escapeHtml(dateText) + '</small>' : '')
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
+        + '<button type="button" style="height:32px;border-radius:11px;font-size:10px;" onclick="katapataOpenPurchasedOutputFromPanel(\'' + key + '\',\'normal\')">通常PDF</button>'
+        + '<button type="button" style="height:32px;border-radius:11px;font-size:10px;" onclick="katapataOpenPurchasedOutputFromPanel(\'' + key + '\',\'tiled\')">A4分割PDF</button>'
+        + '</div></div>';
+    }).join('');
+
+    return '<section id="katapataOutputPurchasedPanel" class="panel" style="border-color:#c9dfc5;background:#f4fbf1;">'
+      + '<h2 style="margin-bottom:7px;">購入済みPDF出力</h2>'
+      + '<p style="margin:0 0 8px;font-size:10.5px;line-height:1.45;color:#3f5f3a;font-weight:800;">解除済みの原型について、購入時点の内容から通常PDFとA4分割PDFを出力できます。寸法や調整を変更した後でも、ここから出すPDFは購入時点の原型です。</p>'
+      + items
+      + '</section>';
+  }
+
+  function renderPanel(){
+    if (!isOutputStage()) return;
+    const side = document.querySelector('.side');
+    if (!side) return;
+    const old = document.getElementById('katapataOutputPurchasedPanel');
+    if (old) old.remove();
+    const html = panelHtml();
+    if (!html) return;
+    side.insertAdjacentHTML('afterbegin', html);
+  }
+  window.katapataRenderPurchasedOutputPanel = renderPanel;
+
+  // renderSideContent 後に消されても復活させる。
+  const oldRenderSide = (typeof window.renderSideContent === 'function') ? window.renderSideContent : null;
+  if (oldRenderSide && !oldRenderSide.__katapataV12fWrapped) {
+    const wrapped = function(){
+      const result = oldRenderSide.apply(this, arguments);
+      setTimeout(renderPanel, 0);
+      setTimeout(renderPanel, 180);
+      return result;
+    };
+    wrapped.__katapataV12fWrapped = true;
+    window.renderSideContent = wrapped;
+    try { renderSideContent = wrapped; } catch (_) {}
+  }
+
+  // 解除コード入力成功後、出力画面に移動したタイミングでパネルを出す。
+  const oldTry = (typeof window.katapataTryUnlockCode === 'function') ? window.katapataTryUnlockCode : null;
+  if (oldTry && !oldTry.__katapataV12fWrapped) {
+    const wrappedTry = async function(){
+      const result = await oldTry.apply(this, arguments);
+      setTimeout(renderPanel, 700);
+      setTimeout(renderPanel, 1300);
+      return result;
+    };
+    wrappedTry.__katapataV12fWrapped = true;
+    window.katapataTryUnlockCode = wrappedTry;
+    try { katapataTryUnlockCode = wrappedTry; } catch (_) {}
+  }
+
+  document.addEventListener('click', function(){ setTimeout(renderPanel, 220); }, true);
+  window.addEventListener('storage', function(e){ if (e && e.key === SNAPSHOT_KEY) setTimeout(renderPanel, 0); });
+  window.addEventListener('DOMContentLoaded', function(){ setTimeout(renderPanel, 500); });
+  setTimeout(renderPanel, 800);
+})();
+</script>
 </body></html>`);
     printWindow.document.close();
     try { setSaveMessage('購入済み原型の通常サイズPDF用画面を開きました。', 'ok'); } catch (_) {}
