@@ -2088,6 +2088,7 @@ window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw
 
   const MODAL_ID = 'katapataPaymentConfirmModal';
   const STYLE_ID = 'katapataPurchaseFlowPagesV14Style';
+  const SNAPSHOT_KEY = 'katapata_paid_print_snapshots_v2';
 
   function esc(value){
     return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
@@ -2101,7 +2102,35 @@ window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw
     } catch (_) {}
   }
 
+  function readSnapshots(){
+    try {
+      const raw = localStorage.getItem(SNAPSHOT_KEY);
+      return raw ? (JSON.parse(raw) || {}) : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function hasPurchasedSnapshot(){
+    const map = readSnapshots();
+    return Object.keys(map).some(key => map[key] && map[key].svgText);
+  }
+
+  function setInlineUnlockMessage(html, mode){
+    const el = document.getElementById('katapataUnlockMessage');
+    if (!el) return;
+    el.className = `katapataUnlockMessage ${mode || ''}`.trim();
+    el.innerHTML = html;
+  }
+
   function goOutput(){
+    if (!hasPurchasedSnapshot()) {
+      showPage('paid');
+      const html = '<strong>購入済みPDFデータがまだありません</strong><small>解除コードを入力してください。別PCで購入した場合は「保存データ」から購入済み .katapata を読み込んでください。</small>';
+      setInlineUnlockMessage(html, 'warn');
+      setMessage(html, 'warn');
+      return;
+    }
     try { if (typeof window.katapataClosePaymentConfirm === 'function') window.katapataClosePaymentConfirm(); } catch (_) {}
     try {
       const overlay = document.getElementById(MODAL_ID);
@@ -2215,7 +2244,7 @@ window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw
             <p class="katapataUnlockIntro">照合が完了すると、このブラウザに購入済みPDFデータを保存し、出力ページへ移動します。</p>
             <div class="katapataUnlockRow"><input id="katapataUnlockCode" type="text" inputmode="latin" autocomplete="off" placeholder="UNLOCK CODE"><button id="katapataUnlockButton" type="button" onclick="katapataTryUnlockCode()">解除する</button></div>
             <p id="katapataUnlockMessage" class="katapataUnlockMessage"></p>
-            <div class="katapataFlowActionRow"><button type="button" class="sub" onclick="katapataGoPurchasedOutput()">購入済みPDF出力へ</button></div>
+            <div class="katapataFlowActionRow"><button type="button" class="sub" data-katapata-go-purchased-output onclick="katapataGoPurchasedOutput()">購入済みPDF出力へ</button></div>
           </section>
           <section class="katapataFlowPage" data-katapata-flow-page="save">
             <p class="katapataFlowLead">購入対象データはこのブラウザに自動保存します。別端末で解除する可能性がある場合は、購入前に .katapata を書き出してください。</p>
@@ -2258,6 +2287,14 @@ window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw
   }
 
   window.katapataGoPurchasedOutput = goOutput;
+
+  document.addEventListener('click', function(event){
+    const target = event.target && event.target.closest ? event.target.closest('[data-katapata-go-purchased-output]') : null;
+    if (!target) return;
+    event.preventDefault();
+    event.stopPropagation();
+    goOutput();
+  }, true);
 
   window.katapataSaveCurrentPurchaseDraft = function(){
     try {
