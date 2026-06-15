@@ -754,33 +754,6 @@ window.addEventListener("DOMContentLoaded", () => {
   <div class="printNote">購入済み原型｜印刷後の寸法をご確認ください</div>
   <div class="noPrint"><button onclick="window.print()">PDF保存 / 印刷</button><button class="sub" onclick="window.close()">閉じる</button></div>
   <script>window.addEventListener('load',function(){function fit(){var p=document.querySelector('.printPage'); if(!p)return; var raw=p.offsetWidth || p.getBoundingClientRect().width; var scale=Math.min(1,Math.max(240,window.innerWidth-28)/raw); document.documentElement.style.setProperty('--screen-scale',String(scale)); p.style.marginBottom=Math.max(80,p.offsetHeight*scale+30)+'px';} window.addEventListener('resize',fit); fit(); if(!/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')){setTimeout(function(){window.print();},300);}});<\/script>
-
-
-<script id="katapata-purchase-screen-clean-v10">
-/*
- * KATAPATA purchase/output screen cleanup v1.0
- * 購入対象選択画面に出ていた、通常PDF/A4分割PDFの直接出力ブロックを非表示にします。
- * PDF出力ボタンは、購入・解除後の出力導線側で扱う想定です。
- */
-(function katapataInstallPurchaseScreenCleanV10(){
-  'use strict';
-  function ensureStyle(){
-    if (document.getElementById('katapataPurchaseScreenCleanV10Style')) return;
-    const style = document.createElement('style');
-    style.id = 'katapataPurchaseScreenCleanV10Style';
-    style.textContent = `
-      /* 購入対象選択画面の重複する通常PDF/A4分割PDFボタンブロックを非表示 */
-      .main[data-stage="output"] .paidInlineNotice{
-        display:none !important;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  ensureStyle();
-  window.katapataPurchaseScreenCleanV10Installed = true;
-})();
-</script>
-
 </body></html>`);
     printWindow.document.close();
     try { setSaveMessage('購入済み原型の通常サイズPDF用画面を開きました。', 'ok'); } catch (_) {}
@@ -842,34 +815,7 @@ window.addEventListener("DOMContentLoaded", () => {
     printWindow.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>KATAPATA | 購入済みA4分割PDF</title><style>
   @page { size: A4 portrait; margin: 0; } *{box-sizing:border-box} html, body{margin:0;padding:0;background:#fff;color:#111;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.tilePage{position:relative;width:210mm;height:286mm;min-height:0;padding:3mm 10mm 5mm 10mm;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;overflow:hidden}.tilePage:last-child{page-break-after:auto;break-after:auto}.tileMeta,.tileFooter{display:flex;justify-content:space-between;align-items:center;gap:4mm;font-size:7.5px;color:#555;font-weight:700;height:5mm;white-space:nowrap}.tileViewportWrap{width:190mm;height:264mm;display:flex;align-items:center;justify-content:center}.tileViewport{position:relative;width:190mm;height:264mm;overflow:hidden;border:.25mm solid #d5d5d5;background:#fff}.tileSvgFrame{position:absolute;overflow:visible;z-index:1}.tileSvgFrame svg{width:${fullWidthMm}mm;height:${fullHeightMm}mm;display:block;overflow:visible}.tileMaskRight,.tileMaskBottom{position:absolute;background:#fff;z-index:2;pointer-events:none}.tileMaskRight{top:0;right:0;height:264mm}.tileMaskBottom{left:0;bottom:0;width:190mm}.cropMark,.joinMark{position:absolute;z-index:3;pointer-events:none}.cropMark::before,.cropMark::after,.joinMark::before,.joinMark::after{content:"";position:absolute;background:#8e8e8e}.cropTL{left:0;top:0;width:6mm;height:5mm}.cropTR{right:0;top:0;width:6mm;height:6mm}.cropBL{left:0;bottom:0;width:6mm;height:6mm}.cropBR{right:0;bottom:0;width:6mm;height:6mm}.cropTL::before,.cropBL::before,.cropTR::before,.cropBR::before{width:6mm;height:.35mm;top:0;left:0}.cropTL::after,.cropBL::after,.cropTR::after,.cropBR::after{width:.35mm;height:6mm;top:0;left:0}.cropTR::before,.cropBR::before{right:0;left:auto}.cropTR::after,.cropBR::after{right:0;left:auto}.cropBL::before,.cropBR::before{bottom:0;top:auto}.cropBL::after,.cropBR::after{bottom:0;top:auto}.joinTop{top:0;left:50%;width:10mm;height:5mm;transform:translateX(-50%)}.joinBottom{bottom:0;left:50%;width:10mm;height:5mm;transform:translateX(-50%)}.joinLeft{left:0;top:50%;width:5mm;height:10mm;transform:translateY(-50%)}.joinRight{right:0;top:50%;width:5mm;height:10mm;transform:translateY(-50%)}.joinTop::before,.joinBottom::before{width:10mm;height:.35mm;left:0;top:50%;transform:translateY(-50%)}.joinTop::after,.joinBottom::after{width:.35mm;height:5mm;left:50%;top:0;transform:translateX(-50%)}.joinLeft::before,.joinRight::before{width:.35mm;height:10mm;left:50%;top:0;transform:translateX(-50%)}.joinLeft::after,.joinRight::after{width:5mm;height:.35mm;left:0;top:50%;transform:translateY(-50%)}.edgeHint{position:absolute;z-index:4;font-size:7.5px;font-weight:700;color:#666;background:rgba(255,255,255,.88);padding:.6mm 1.2mm;border-radius:999px;border:.2mm solid #ddd;white-space:nowrap;pointer-events:none}.edgeHint-left{left:2mm;top:50%;transform:translateY(-50%)}.edgeHint-right{right:2mm;top:50%;transform:translateY(-50%)}.edgeHint-top{top:2mm;left:50%;transform:translateX(-50%)}.edgeHint-bottom{bottom:2mm;left:50%;transform:translateX(-50%)}.noPrint{position:fixed;left:10mm;bottom:8mm;display:flex;gap:8px;z-index:10}.noPrint button{border:0;border-radius:999px;background:#171717;color:#fff;font-weight:800;padding:8px 14px;cursor:pointer}.noPrint .sub{background:#8e7e68}@media screen{html,body{width:auto;min-width:100%;min-height:100%;overflow:auto;background:#f8f5ef}.tilePage{margin:12px auto;background:#fff;box-shadow:0 10px 36px rgba(0,0,0,.12);transform-origin:top center;transform:scale(var(--screen-scale,1))}.noPrint{position:fixed;left:10px;bottom:10px;right:10px;background:rgba(255,255,255,.92);border:1px solid #e4ded4;border-radius:14px;padding:8px;flex-wrap:wrap}}@media print{.noPrint{display:none!important}}
   ${printHtmlCommon()}
-</style></head><body class="${/iPhone|iPad|iPod/i.test(navigator.userAgent || '') ? 'iosPrint' : ''}">${pagesHtml}<div class="noPrint"><button onclick="window.print()">PDF保存 / 印刷</button><button class="sub" onclick="window.close()">閉じる</button></div><script>window.addEventListener('load',function(){function fit(){var p=document.querySelector('.tilePage'); if(!p)return; var raw=p.offsetWidth || p.getBoundingClientRect().width; var scale=Math.min(1,Math.max(240,window.innerWidth-28)/raw); document.documentElement.style.setProperty('--screen-scale',String(scale));} window.addEventListener('resize',fit); fit(); if(!/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')){setTimeout(function(){window.print();},300);}});<\/script>
-
-<script id="katapata-purchase-screen-clean-v10">
-/*
- * KATAPATA purchase/output screen cleanup v1.0
- * 購入対象選択画面に出ていた、通常PDF/A4分割PDFの直接出力ブロックを非表示にします。
- * PDF出力ボタンは、購入・解除後の出力導線側で扱う想定です。
- */
-(function katapataInstallPurchaseScreenCleanV10(){
-  'use strict';
-  function ensureStyle(){
-    if (document.getElementById('katapataPurchaseScreenCleanV10Style')) return;
-    const style = document.createElement('style');
-    style.id = 'katapataPurchaseScreenCleanV10Style';
-    style.textContent = `
-      /* 購入対象選択画面の重複する通常PDF/A4分割PDFボタンブロックを非表示 */
-      .main[data-stage="output"] .paidInlineNotice{
-        display:none !important;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  ensureStyle();
-  window.katapataPurchaseScreenCleanV10Installed = true;
-})();
-</script>
-
-</body></html>`);
+</style></head><body class="${/iPhone|iPad|iPod/i.test(navigator.userAgent || '') ? 'iosPrint' : ''}">${pagesHtml}<div class="noPrint"><button onclick="window.print()">PDF保存 / 印刷</button><button class="sub" onclick="window.close()">閉じる</button></div><script>window.addEventListener('load',function(){function fit(){var p=document.querySelector('.tilePage'); if(!p)return; var raw=p.offsetWidth || p.getBoundingClientRect().width; var scale=Math.min(1,Math.max(240,window.innerWidth-28)/raw); document.documentElement.style.setProperty('--screen-scale',String(scale));} window.addEventListener('resize',fit); fit(); if(!/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')){setTimeout(function(){window.print();},300);}});<\/script></body></html>`);
     printWindow.document.close();
     try { setSaveMessage('購入済み原型のA4分割印刷用画面を開きました。', 'ok'); } catch (_) {}
   }
@@ -1706,19 +1652,18 @@ window.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 
-
-<script id="katapata-purchase-screen-clean-v10">
+<script id="katapata-purchase-screen-clean-v10b">
 /*
- * KATAPATA purchase/output screen cleanup v1.0
+ * KATAPATA purchase/output screen cleanup v1.0b
  * 購入対象選択画面に出ていた、通常PDF/A4分割PDFの直接出力ブロックを非表示にします。
  * PDF出力ボタンは、購入・解除後の出力導線側で扱う想定です。
  */
-(function katapataInstallPurchaseScreenCleanV10(){
+(function katapataInstallPurchaseScreenCleanV10b(){
   'use strict';
   function ensureStyle(){
-    if (document.getElementById('katapataPurchaseScreenCleanV10Style')) return;
+    if (document.getElementById('katapataPurchaseScreenCleanV10bStyle')) return;
     const style = document.createElement('style');
-    style.id = 'katapataPurchaseScreenCleanV10Style';
+    style.id = 'katapataPurchaseScreenCleanV10bStyle';
     style.textContent = `
       /* 購入対象選択画面の重複する通常PDF/A4分割PDFボタンブロックを非表示 */
       .main[data-stage="output"] .paidInlineNotice{
@@ -1731,5 +1676,4 @@ window.addEventListener("DOMContentLoaded", () => {
   window.katapataPurchaseScreenCleanV10Installed = true;
 })();
 </script>
-
 </body></html>
