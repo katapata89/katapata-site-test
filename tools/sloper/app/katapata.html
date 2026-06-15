@@ -231,6 +231,7 @@ window.addEventListener("DOMContentLoaded", () => {
           action: 'verify',
           product_key: product.key,
           unlock_code: code,
+          design_signature: (typeof katapataGetPaidDesignSignature === 'function' ? katapataGetPaidDesignSignature() : ''),
           memo: 'katapata_html_unlock'
         }, JSONP_TIMEOUT_MS);
 
@@ -1342,7 +1343,7 @@ window.addEventListener("DOMContentLoaded", () => {
       <p class="katapataPurchaseSaveNote">${payText('有料PDFは、購入時点の原型データをもとに出力します。このブラウザには自動保存します。別ブラウザ・別端末で解除コードを使う場合は、下のボタンで .katapata を保存しておいてください。', 'Paid PDFs are exported from the draft data at the time of purchase. It is saved automatically in this browser. If you may use the unlock code in another browser or device, export the .katapata file below.')}</p>
       <div class="katapataPurchaseSaveActions">
         <button type="button" onclick="katapataDownloadPurchaseState('${escapeHtml(product.key)}')">${payText('購入対象データを書き出す', 'Export purchase draft')}</button>
-        <button type="button" class="sub" onclick="triggerImportStateJson && triggerImportStateJson()">${payText('保存データを読み込む', 'Import saved data')}</button>
+        <button type="button" class="sub" onclick="katapataLoadOutputCapableSavedData && katapataLoadOutputCapableSavedData('${escapeHtml(product.key)}')">${payText('保存データを読み込む', 'Import saved data')}</button>
       </div>
       <p class="katapataPurchaseSaveMeta">${dateText ? payText('このブラウザに保存済み：', 'Saved in this browser: ') + escapeHtml(dateText) : payText('この確認画面を開いた時点で、購入対象データをブラウザに保存します。', 'Opening this confirmation screen saves the purchase draft in this browser.')}</p>
       <p id="katapataPurchaseSaveStatus" class="katapataUnlockMessage"></p>
@@ -1434,6 +1435,220 @@ window.addEventListener("DOMContentLoaded", () => {
   };
   window.katapataCapturePurchaseStateForPayment = capturePurchaseState;
   window.katapataPurchaseStateInsuranceV08Installed = true;
+})();
+</script>
+
+<script id="katapata-output-capable-load-v09">
+/*
+ * KATAPATA output-capable saved data patch v0.9
+ * - 「保存データを読み込む」から .katapata を読み込み、購入済みPDFスナップショットが含まれていればPDF出力へ移動します。
+ * - 出力可能なスナップショットが無い場合は「出力可能なデータはありません」と表示します。
+ * - 購入済みスナップショットがある状態で書き出す .katapata には、そのスナップショットも同梱します。
+ */
+(function katapataInstallOutputCapableLoadV09(){
+  'use strict';
+
+  const SNAPSHOT_KEY = 'katapata_paid_print_snapshots_v2';
+  const BASE_UNLOCK_KEY = 'katapata_paid_unlocks_v1';
+
+  function text(ja, en){
+    try { if (typeof katapataPayText === 'function') return katapataPayText(ja, en); } catch (_) {}
+    try { return document.documentElement && document.documentElement.lang === 'en' ? en : ja; } catch (_) { return ja; }
+  }
+  function parseJson(value, fallback){
+    try { return value ? JSON.parse(value) : fallback; } catch (_) { return fallback; }
+  }
+  function readJson(key, fallback){
+    try { return parseJson(localStorage.getItem(key), fallback) || fallback; } catch (_) { return fallback; }
+  }
+  function writeJson(key, value){
+    try { localStorage.setItem(key, JSON.stringify(value || {})); } catch (_) {}
+  }
+  function productInfo(kind){
+    try { if (typeof katapataPaymentProductInfo === 'function') return katapataPaymentProductInfo(kind || window.katapataPendingPaymentKind || '有料出力'); } catch (_) {}
+    return { key: String(kind || 'tops'), name: 'トップス原型PDF', target: 'トップス' };
+  }
+  function normalizeKind(kind){
+    const p = productInfo(kind || (typeof katapataCurrentPaidKindForOutput === 'function' ? katapataCurrentPaidKindForOutput() : window.katapataPendingPaymentKind || 'tops'));
+    return (p && p.key) || 'tops';
+  }
+  function setStatus(message, type){
+    const el = document.getElementById('katapataPurchaseSaveStatus') || document.getElementById('katapataUnlockMessage');
+    if (el) {
+      el.textContent = message;
+      el.className = 'katapataUnlockMessage ' + (type || 'warn');
+    }
+    try { if (typeof setSaveMessage === 'function') setSaveMessage(message, type || 'warn'); } catch (_) {}
+  }
+  function readSnapshots(){ return readJson(SNAPSHOT_KEY, {}); }
+  function writeSnapshots(map){ writeJson(SNAPSHOT_KEY, map || {}); }
+  function markBaseUnlocked(productKey){
+    const map = readJson(BASE_UNLOCK_KEY, {});
+    map[productKey] = true;
+    writeJson(BASE_UNLOCK_KEY, map);
+  }
+  function findSnapshotInData(data){
+    if (!data || typeof data !== 'object') return null;
+    const candidates = [
+      data.katapataPaidSnapshot,
+      data.paidSnapshot,
+      data.purchasePaidSnapshot,
+      data.purchaseSnapshot,
+      data.paidPrintSnapshot,
+      data.snapshot
+    ];
+    for (const snap of candidates) {
+      if (snap && typeof snap === 'object' && snap.svgText) return snap;
+    }
+    // まるごとスナップショットとして保存されている場合の保険
+    if (data.svgText && (data.productKey || data.kind || data.fullWidthMm || data.fullHeightMm)) return data;
+    return null;
+  }
+  function inferProductKey(data, fallbackKind){
+    const snap = findSnapshotInData(data);
+    const raw = (snap && (snap.productKey || snap.kind || snap.product)) ||
+      (data && data.purchaseIntent && (data.purchaseIntent.productKey || data.purchaseIntent.kind)) ||
+      (data && (data.productKey || data.kind)) ||
+      fallbackKind;
+    return normalizeKind(raw || fallbackKind || 'tops');
+  }
+  function saveImportedSnapshot(productKey, snap){
+    if (!snap || !snap.svgText) return false;
+    const map = readSnapshots();
+    map[productKey] = Object.assign({}, snap, {
+      productKey,
+      importedAt: new Date().toISOString(),
+      source: snap.source || 'katapata_imported_output_capable_data'
+    });
+    writeSnapshots(map);
+    markBaseUnlocked(productKey);
+    return true;
+  }
+  function goToOutput(productKey){
+    try { if (typeof katapataClosePaymentConfirm === 'function') katapataClosePaymentConfirm(); } catch (_) {}
+    let moved = false;
+    try {
+      const btn = document.querySelector('.appStagebar .stage[data-stage="output"], .stage[data-stage="output"], [data-stage-button="output"]');
+      if (btn && typeof btn.click === 'function') { btn.click(); moved = true; }
+    } catch (_) {}
+    if (!moved) {
+      try { if (typeof setStage === 'function') { setStage('output'); moved = true; } } catch (_) {}
+    }
+    if (!moved) {
+      try { if (typeof showStage === 'function') { showStage('output'); moved = true; } } catch (_) {}
+    }
+    if (!moved) {
+      try { if (typeof katapataOpenPaymentConfirm === 'function') katapataOpenPaymentConfirm(productKey); } catch (_) {}
+    }
+    setStatus(text('購入済み原型データを読み込みました。PDF出力へ移動します。', 'Purchased draft data was loaded. Moving to PDF output.'), 'ok');
+  }
+  function tryApplyPlainState(data){
+    // 出力可能データではない場合でも、通常の保存データとして読み込める場合は読み込んでおく保険。
+    try {
+      if (typeof applyStateObject === 'function') {
+        const state = data && data.state ? data.state : data;
+        if (state && typeof state === 'object') {
+          applyStateObject(state);
+          try { if (typeof render === 'function') render(); } catch (_) {}
+          return true;
+        }
+      }
+    } catch (error) {
+      console.warn('KATAPATA import plain state failed', error);
+    }
+    return false;
+  }
+  function handleImportedData(data, fallbackKind){
+    const productKey = inferProductKey(data, fallbackKind || 'tops');
+    const snap = findSnapshotInData(data);
+    if (snap && saveImportedSnapshot(productKey, snap)) {
+      goToOutput(productKey);
+      return true;
+    }
+    tryApplyPlainState(data);
+    setStatus(text('出力可能なデータはありません。購入済みPDFを出力するには、購入済み原型データを含む .katapata を読み込んでください。', 'No output-capable data was found. To export paid PDFs, import a .katapata file that includes purchased draft data.'), 'warn');
+    return false;
+  }
+  function chooseFileAndLoad(kind){
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.katapata,.json,application/json,application/katapata+json';
+    input.style.position = 'fixed';
+    input.style.left = '-9999px';
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      input.remove();
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(String(reader.result || ''));
+          handleImportedData(data, kind);
+        } catch (error) {
+          console.error(error);
+          setStatus(text('出力可能なデータはありません。保存データの形式を確認してください。', 'No output-capable data was found. Please check the saved data format.'), 'bad');
+        }
+      };
+      reader.onerror = () => setStatus(text('保存データを読み込めませんでした。', 'Could not read the saved data.'), 'bad');
+      reader.readAsText(file, 'utf-8');
+    }, { once: true });
+    document.body.appendChild(input);
+    input.click();
+  }
+
+  // 購入済みスナップショットがある場合、書き出す .katapata に同梱する。
+  window.katapataDownloadPurchaseState = function katapataDownloadPurchaseStateV09(kindOrKey){
+    const productKey = normalizeKind(kindOrKey || (typeof katapataCurrentPaidKindForOutput === 'function' ? katapataCurrentPaidKindForOutput() : window.katapataPendingPaymentKind || 'tops'));
+    const product = productInfo(productKey);
+    const snapshots = readSnapshots();
+    const paidSnapshot = snapshots[productKey] || null;
+    let stateObj = null;
+    try { if (typeof exportStateObject === 'function') stateObj = exportStateObject(); } catch (_) {}
+    const exportObj = {
+      version: 2,
+      savedBy: 'katapata-purchase-state-insurance-v09',
+      exportedAt: new Date().toISOString(),
+      productKey,
+      productName: product && product.name ? product.name : '',
+      productTarget: product && product.target ? product.target : '',
+      purchaseIntent: {
+        productKey,
+        productName: product && product.name ? product.name : '',
+        productTarget: product && product.target ? product.target : '',
+        capturedAt: new Date().toISOString(),
+        signature: (typeof katapataGetPaidDesignSignature === 'function' ? katapataGetPaidDesignSignature() : '')
+      },
+      state: stateObj || null
+    };
+    if (paidSnapshot && paidSnapshot.svgText) {
+      exportObj.outputCapable = true;
+      exportObj.katapataPaidSnapshot = Object.assign({}, paidSnapshot, { productKey });
+    } else {
+      exportObj.outputCapable = false;
+    }
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/katapata+json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().replace(/[-:]/g, '').slice(0, 13);
+    a.href = url;
+    a.download = paidSnapshot && paidSnapshot.svgText ? `katapata_paid_${productKey}_${date}.katapata` : `katapata_purchase_${productKey}_${date}.katapata`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1200);
+    if (paidSnapshot && paidSnapshot.svgText) {
+      setStatus(text('購入済み原型データを書き出しました。別ブラウザでもPDF出力できます。', 'Purchased draft data was exported. It can be used for PDF output in another browser.'), 'ok');
+    } else {
+      setStatus(text('購入対象データを書き出しました。まだPDF出力可能なデータではありません。解除コードを入力後に、必要ならもう一度書き出してください。', 'Purchase draft data was exported. It is not output-capable yet. After entering the unlock code, export again if needed.'), 'warn');
+    }
+  };
+
+  window.katapataLoadOutputCapableSavedData = function katapataLoadOutputCapableSavedData(kindOrKey){
+    chooseFileAndLoad(kindOrKey || 'tops');
+  };
+
+  window.katapataHandleImportedOutputCapableData = handleImportedData;
+  window.katapataOutputCapableLoadPatchInstalled = true;
 })();
 </script>
 </body></html>
