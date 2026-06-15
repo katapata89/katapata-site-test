@@ -759,363 +759,6 @@ window.addEventListener("DOMContentLoaded", () => {
   <div class="printNote">購入済み原型｜印刷後の寸法をご確認ください</div>
   <div class="noPrint"><button onclick="window.print()">PDF保存 / 印刷</button><button class="sub" onclick="window.close()">閉じる</button></div>
   <script>window.addEventListener('load',function(){function fit(){var p=document.querySelector('.printPage'); if(!p)return; var raw=p.offsetWidth || p.getBoundingClientRect().width; var scale=Math.min(1,Math.max(240,window.innerWidth-28)/raw); document.documentElement.style.setProperty('--screen-scale',String(scale)); p.style.marginBottom=Math.max(80,p.offsetHeight*scale+30)+'px';} window.addEventListener('resize',fit); fit(); if(!/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')){setTimeout(function(){window.print();},300);}});<\/script>
-
-<script id="katapata-v17-output-unlock-button-real">
-/*
- * KATAPATA v17 output-screen unlock button
- * 出力画面の説明メモを隠し、代わりに「解除コード入力」ボタンを表示します。
- * 購入モーダルではなく、出力画面から支払い済みコードを入力できるようにします。
- */
-(function katapataInstallOutputUnlockButtonV17(){
-  'use strict';
-  if (window.katapataOutputUnlockButtonV17Installed) return;
-  window.katapataOutputUnlockButtonV17Installed = true;
-
-  function t(ja, en){
-    try { if (typeof window.katapataPayText === 'function') return window.katapataPayText(ja, en); } catch (_) {}
-    return ja;
-  }
-  function esc(s){
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  }
-  function productKeyFromText(text){
-    text = String(text || '').toLowerCase();
-    if (/pants|パンツ/.test(text)) return 'pants';
-    if (/skirt|スカート/.test(text)) return 'skirt';
-    return 'tops';
-  }
-  function currentProductKey(){
-    try {
-      const saved = String(window.katapataSelectedCheckoutProductKey || sessionStorage.getItem('katapata_selected_checkout_product_key') || '').toLowerCase();
-      if (/^(tops|skirt|pants)$/.test(saved)) return saved;
-    } catch (_) {}
-    try {
-      const active = document.querySelector('.main[data-stage="output"] .purchaseTarget.active, .main[data-stage="output"] .purchaseTarget[aria-pressed="true"], .main[data-stage="output"] .purchaseTarget.selected');
-      if (active) return productKeyFromText(active.textContent || '');
-    } catch (_) {}
-    try {
-      if (typeof confirmPreviewPart !== 'undefined') return productKeyFromText(confirmPreviewPart);
-    } catch (_) {}
-    return 'tops';
-  }
-  function productLabel(key){
-    if (key === 'pants') return t('パンツ原型PDF', 'Pants sloper PDF');
-    if (key === 'skirt') return t('スカート原型PDF', 'Skirt sloper PDF');
-    return t('トップス原型PDF', 'Tops sloper PDF');
-  }
-  function setCurrentProduct(key){
-    key = productKeyFromText(key);
-    window.katapataSelectedCheckoutProductKey = key;
-    window.katapataPendingPaymentKind = key;
-    try { sessionStorage.setItem('katapata_selected_checkout_product_key', key); } catch (_) {}
-    return key;
-  }
-
-  function ensureStyle(){
-    if (document.getElementById('katapataV17OutputUnlockStyle')) return;
-    const style = document.createElement('style');
-    style.id = 'katapataV17OutputUnlockStyle';
-    style.textContent = `
-      .main[data-stage="output"] .outputCompactNotes,
-      .main[data-stage="output"] .outputCompactNote{
-        display:none !important;
-      }
-      .katapataOutputUnlockPanelV17{
-        display:grid;
-        gap:8px;
-        margin-top:8px;
-        padding:10px 11px;
-        border-radius:16px;
-        background:#fffaf2;
-        border:1px solid #eadcc8;
-        color:#4b3a24;
-      }
-      .katapataOutputUnlockPanelV17 strong{
-        font-size:12px;
-        font-weight:950;
-      }
-      .katapataOutputUnlockPanelV17 p{
-        margin:0;
-        font-size:10px;
-        line-height:1.45;
-        font-weight:760;
-        color:#5b4d3b;
-      }
-      .katapataOutputUnlockPanelV17 button{
-        width:100%;
-        min-height:38px;
-        border-radius:14px;
-      }
-      .katapataUnlockDialogV17{
-        position:fixed;
-        inset:0;
-        z-index:2147483000;
-        display:grid;
-        place-items:center;
-        padding:18px;
-        background:rgba(23,23,23,.38);
-      }
-      .katapataUnlockDialogCardV17{
-        width:min(460px, 96vw);
-        max-height:92vh;
-        overflow:auto;
-        background:#fffdf8;
-        border:1px solid #e4ded4;
-        border-radius:24px;
-        box-shadow:0 24px 80px rgba(0,0,0,.22);
-        padding:18px;
-        color:#171717;
-      }
-      .katapataUnlockDialogCardV17 h2{
-        margin:0 0 8px;
-        font-size:18px;
-        font-weight:950;
-      }
-      .katapataUnlockDialogCardV17 p{
-        margin:0 0 10px;
-        font-size:12px;
-        line-height:1.65;
-        font-weight:760;
-        color:#5b4d3b;
-      }
-      .katapataUnlockDialogInputV17{
-        display:grid;
-        gap:8px;
-        margin:10px 0;
-      }
-      .katapataUnlockDialogInputV17 input{
-        width:100%;
-        height:42px;
-        border:1px solid #ddd4c7;
-        border-radius:14px;
-        padding:0 12px;
-        font-size:15px;
-        font-weight:900;
-        box-sizing:border-box;
-        text-transform:uppercase;
-        background:#fff;
-        color:#171717;
-      }
-      .katapataUnlockDialogActionsV17,
-      .katapataUnlockDialogPrintsV17{
-        display:grid;
-        grid-template-columns:1fr 1fr;
-        gap:8px;
-        margin-top:10px;
-      }
-      .katapataUnlockDialogActionsV17 button,
-      .katapataUnlockDialogPrintsV17 button{
-        min-height:38px;
-        border-radius:14px;
-      }
-      .katapataUnlockDialogActionsV17 .sub,
-      .katapataUnlockDialogPrintsV17 .sub{
-        background:#8e7e68;
-      }
-      .katapataUnlockMessage{
-        display:none;
-        margin-top:8px;
-        padding:9px 10px;
-        border-radius:13px;
-        font-size:11px;
-        line-height:1.45;
-        font-weight:850;
-      }
-      .katapataUnlockMessage.ok{display:block;background:#eef8ed;border:1px solid #b8dfb5;color:#275d2d;}
-      .katapataUnlockMessage.warn{display:block;background:#fff6e3;border:1px solid #f0d18c;color:#7a5517;}
-      .katapataUnlockMessage.bad{display:block;background:#fff0ef;border:1px solid #e5aaa2;color:#8b2d25;}
-      #katapataUnlockPrintsV17[hidden]{display:none!important;}
-      @media (max-width:560px){
-        .katapataUnlockDialogActionsV17,
-        .katapataUnlockDialogPrintsV17{grid-template-columns:1fr;}
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  function hideOutputNotes(){
-    const main = document.querySelector('.main[data-stage="output"]');
-    if (!main) return;
-    main.querySelectorAll('.outputCompactNotes, .outputCompactNote').forEach(el => {
-      el.setAttribute('hidden', 'hidden');
-      el.style.display = 'none';
-    });
-  }
-
-  function createPanel(){
-    const main = document.querySelector('.main[data-stage="output"]');
-    if (!main) return;
-    if (main.querySelector('#katapataOutputUnlockPanelV17')) return;
-    const panel = document.createElement('section');
-    panel.id = 'katapataOutputUnlockPanelV17';
-    panel.className = 'katapataOutputUnlockPanelV17';
-    panel.innerHTML = `
-      <strong>${esc(t('支払い済みの方', 'Already paid?'))}</strong>
-      <p>${esc(t('メールで届いた解除コードを入力すると、有料PDFを出力できます。', 'Enter the unlock code from the email to export the paid PDFs.'))}</p>
-      <button type="button" id="katapataOutputUnlockButtonV17">${esc(t('解除コード入力', 'Enter unlock code'))}</button>
-    `;
-    panel.addEventListener('click', function(e){
-      const btn = e.target && e.target.closest ? e.target.closest('#katapataOutputUnlockButtonV17') : null;
-      if (!btn) return;
-      e.preventDefault();
-      openUnlockDialog(currentProductKey());
-    }, true);
-
-    const notes = main.querySelector('.outputCompactNotes');
-    if (notes && notes.parentElement) {
-      notes.parentElement.insertBefore(panel, notes);
-      return;
-    }
-    const printActions = main.querySelector('.printActions');
-    if (printActions && printActions.parentElement) {
-      printActions.insertAdjacentElement('afterend', panel);
-      return;
-    }
-    const panelTarget = main.querySelector('.side .panel:last-child') || main.querySelector('.side') || main;
-    panelTarget.appendChild(panel);
-  }
-
-  function closeUnlockDialog(){
-    const old = document.getElementById('katapataUnlockDialogV17');
-    if (old) old.remove();
-  }
-
-  function showPrintButtons(kind){
-    const box = document.getElementById('katapataUnlockPrintsV17');
-    if (!box) return;
-    box.hidden = false;
-    box.querySelectorAll('[data-katapata-print]').forEach(btn => {
-      btn.onclick = function(ev){
-        ev.preventDefault();
-        const mode = btn.getAttribute('data-katapata-print') || 'normal';
-        try {
-          if (typeof window.katapataOpenPurchasedSnapshotPrint === 'function') {
-            window.katapataOpenPurchasedSnapshotPrint(kind, mode);
-            return;
-          }
-        } catch (error) { console.error(error); }
-        try { if (typeof window.setSaveMessage === 'function') window.setSaveMessage('購入済みPDF出力を開けませんでした。', 'bad'); } catch (_) {}
-      };
-    });
-  }
-
-  async function submitUnlock(kind){
-    kind = setCurrentProduct(kind || currentProductKey());
-    const input = document.getElementById('katapataUnlockCode');
-    const button = document.getElementById('katapataUnlockButton');
-    const msg = document.getElementById('katapataUnlockMessage');
-    if (button) button.disabled = true;
-    if (msg) {
-      msg.className = 'katapataUnlockMessage warn';
-      msg.textContent = t('解除コードを照合しています…', 'Checking the unlock code…');
-    }
-    try {
-      if (typeof window.katapataTryUnlockCode !== 'function') throw new Error('katapataTryUnlockCode is not available');
-      await window.katapataTryUnlockCode();
-      setTimeout(function(){
-        const text = String((msg && msg.textContent) || '');
-        let ok = /解除しました|利用できます|unlocked|export/i.test(text);
-        try { ok = ok || !!(typeof window.katapataOpenPurchasedSnapshotPrint === 'function' && typeof window.katapataIsPaidUnlocked === 'function' && window.katapataIsPaidUnlocked(kind)); } catch (_) {}
-        if (ok) {
-          if (msg) {
-            msg.className = 'katapataUnlockMessage ok';
-            msg.textContent = t('解除しました。下のボタンからPDFを出力できます。', 'Unlocked. You can export the PDFs from the buttons below.');
-          }
-          showPrintButtons(kind);
-        } else if (button) {
-          button.disabled = false;
-        }
-      }, 900);
-    } catch (error) {
-      console.error(error);
-      if (msg) {
-        msg.className = 'katapataUnlockMessage bad';
-        msg.textContent = t('解除コードの処理中にエラーが発生しました。', 'An error occurred while processing the unlock code.');
-      }
-      if (button) button.disabled = false;
-    }
-  }
-
-  function openUnlockDialog(kind){
-    kind = setCurrentProduct(kind || currentProductKey());
-    try { if (typeof window.katapataClosePaymentConfirm === 'function') window.katapataClosePaymentConfirm(); } catch (_) {}
-    closeUnlockDialog();
-    const div = document.createElement('div');
-    div.id = 'katapataUnlockDialogV17';
-    div.className = 'katapataUnlockDialogV17';
-    div.innerHTML = `
-      <div class="katapataUnlockDialogCardV17" role="dialog" aria-modal="true">
-        <h2>${esc(t('解除コード入力', 'Enter unlock code'))}</h2>
-        <p><strong>${esc(productLabel(kind))}</strong><br>${esc(t('メールで届いた解除コードを入力してください。', 'Enter the unlock code from the email.'))}</p>
-        <div id="katapataUnlockStatus" class="katapataUnlockStatus">${esc(t('解除コードを入力してください。', 'Please enter the unlock code.'))}</div>
-        <div class="katapataUnlockDialogInputV17">
-          <input id="katapataUnlockCode" type="text" autocomplete="off" inputmode="text" placeholder="KTTS-XXXX-XXX">
-          <button type="button" id="katapataUnlockButton">${esc(t('解除する', 'Unlock'))}</button>
-        </div>
-        <div id="katapataUnlockMessage" class="katapataUnlockMessage"></div>
-        <div id="katapataUnlockPrintsV17" class="katapataUnlockDialogPrintsV17" hidden>
-          <button type="button" data-katapata-print="normal">${esc(t('通常サイズPDF', 'Full-size PDF'))}</button>
-          <button type="button" class="sub" data-katapata-print="tiled">${esc(t('A4分割印刷PDF', 'A4 tiled PDF'))}</button>
-        </div>
-        <div class="katapataUnlockDialogActionsV17">
-          <button type="button" class="sub" data-close="1">${esc(t('閉じる', 'Close'))}</button>
-          <button type="button" data-purchase="1">${esc(t('購入画面へ', 'Go to purchase'))}</button>
-        </div>
-      </div>
-    `;
-    div.addEventListener('click', function(e){
-      if (e.target === div || (e.target.closest && e.target.closest('[data-close]'))) {
-        e.preventDefault();
-        closeUnlockDialog();
-        return;
-      }
-      const purchase = e.target && e.target.closest ? e.target.closest('[data-purchase]') : null;
-      if (purchase) {
-        e.preventDefault();
-        closeUnlockDialog();
-        try { if (typeof window.katapataOpenPaymentConfirm === 'function') window.katapataOpenPaymentConfirm(kind); } catch (_) {}
-        return;
-      }
-      const unlock = e.target && e.target.closest ? e.target.closest('#katapataUnlockButton') : null;
-      if (unlock) {
-        e.preventDefault();
-        submitUnlock(kind);
-      }
-    }, true);
-    div.addEventListener('keydown', function(e){
-      if (e.key === 'Enter' && e.target && e.target.id === 'katapataUnlockCode') {
-        e.preventDefault(); submitUnlock(kind);
-      }
-      if (e.key === 'Escape') closeUnlockDialog();
-    });
-    document.body.appendChild(div);
-    try { if (typeof window.katapataUpdateUnlockStatus === 'function') window.katapataUpdateUnlockStatus(kind); } catch (_) {}
-    setTimeout(function(){
-      const input = document.getElementById('katapataUnlockCode');
-      if (input) { input.disabled = false; input.readOnly = false; input.focus(); }
-    }, 60);
-  }
-
-  function refresh(){
-    ensureStyle();
-    hideOutputNotes();
-    createPanel();
-  }
-  document.addEventListener('click', function(e){
-    try {
-      const btn = e.target && e.target.closest ? e.target.closest('.purchaseTarget') : null;
-      if (btn) setCurrentProduct(productKeyFromText(btn.textContent || ''));
-    } catch (_) {}
-    setTimeout(refresh, 60);
-  }, true);
-  const observer = new MutationObserver(function(){ refresh(); });
-  try { observer.observe(document.documentElement, { childList:true, subtree:true, attributes:true, attributeFilter:['data-stage','class'] }); } catch (_) {}
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refresh, { once:true });
-  else refresh();
-  window.katapataOpenOutputUnlockDialog = openUnlockDialog;
-})();
-</script>
-
 </body></html>`);
     printWindow.document.close();
     try { setSaveMessage('購入済み原型の通常サイズPDF用画面を開きました。', 'ok'); } catch (_) {}
@@ -2382,525 +2025,443 @@ window.addEventListener("DOMContentLoaded", () => {
 </script>
 
 
-
-<script id="katapata-v17-output-unlock-button-real">
+<script id="katapata-v16-purchase-modal-unlock-button">
 /*
- * KATAPATA v17 output-screen unlock button
- * 出力画面の説明メモを隠し、代わりに「解除コード入力」ボタンを表示します。
- * 購入モーダルではなく、出力画面から支払い済みコードを入力できるようにします。
+ * KATAPATA v16 purchase modal cleanup + unlock button
+ * 購入画面をすっきりさせる：説明メモを削除し、支払い済みの人向けに「解除コード入力」ボタンだけ残す。
  */
-(function katapataInstallOutputUnlockButtonV17(){
+(function katapataInstallPurchaseModalUnlockButtonV16(){
   'use strict';
-  if (window.katapataOutputUnlockButtonV17Installed) return;
-  window.katapataOutputUnlockButtonV17Installed = true;
 
-  function t(ja, en){
+  function payText(ja, en){
     try { if (typeof window.katapataPayText === 'function') return window.katapataPayText(ja, en); } catch (_) {}
     return ja;
   }
-  function esc(s){
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  }
-  function productKeyFromText(text){
-    text = String(text || '').toLowerCase();
-    if (/pants|パンツ/.test(text)) return 'pants';
-    if (/skirt|スカート/.test(text)) return 'skirt';
-    return 'tops';
-  }
-  function currentProductKey(){
-    try {
-      const saved = String(window.katapataSelectedCheckoutProductKey || sessionStorage.getItem('katapata_selected_checkout_product_key') || '').toLowerCase();
-      if (/^(tops|skirt|pants)$/.test(saved)) return saved;
-    } catch (_) {}
-    try {
-      const active = document.querySelector('.main[data-stage="output"] .purchaseTarget.active, .main[data-stage="output"] .purchaseTarget[aria-pressed="true"], .main[data-stage="output"] .purchaseTarget.selected');
-      if (active) return productKeyFromText(active.textContent || '');
-    } catch (_) {}
-    try {
-      if (typeof confirmPreviewPart !== 'undefined') return productKeyFromText(confirmPreviewPart);
-    } catch (_) {}
-    return 'tops';
-  }
-  function productLabel(key){
-    if (key === 'pants') return t('パンツ原型PDF', 'Pants sloper PDF');
-    if (key === 'skirt') return t('スカート原型PDF', 'Skirt sloper PDF');
-    return t('トップス原型PDF', 'Tops sloper PDF');
-  }
-  function setCurrentProduct(key){
-    key = productKeyFromText(key);
-    window.katapataSelectedCheckoutProductKey = key;
-    window.katapataPendingPaymentKind = key;
-    try { sessionStorage.setItem('katapata_selected_checkout_product_key', key); } catch (_) {}
-    return key;
-  }
 
   function ensureStyle(){
-    if (document.getElementById('katapataV17OutputUnlockStyle')) return;
+    if (document.getElementById('katapataV16PurchaseModalStyle')) return;
     const style = document.createElement('style');
-    style.id = 'katapataV17OutputUnlockStyle';
+    style.id = 'katapataV16PurchaseModalStyle';
     style.textContent = `
-      .main[data-stage="output"] .outputCompactNotes,
-      .main[data-stage="output"] .outputCompactNote{
+      /* 購入画面は購入専用。解除コード欄はボタンを押した時だけ表示 */
+      #katapataPayOverlay:not(.katapataUnlockInlineOpen) .katapataPayUnlock{
         display:none !important;
       }
-      .katapataOutputUnlockPanelV17{
+      #katapataPayOverlay.katapataUnlockInlineOpen .katapataPayUnlock{
+        display:block !important;
+      }
+      #katapataPayOverlay #katapataPurchaseSaveBox .katapataPurchaseSaveActions{
+        grid-template-columns:1fr !important;
+      }
+      #katapataPayOverlay #katapataPurchaseSaveBox .katapataPurchaseSaveActions button.sub,
+      #katapataPayOverlay #katapataPurchaseSaveBox button[onclick*="katapataLoadOutputCapableSavedData"]{
+        display:none !important;
+      }
+      .katapataUnlockInlineButtonBox{
         display:grid;
-        gap:8px;
-        margin-top:8px;
-        padding:10px 11px;
-        border-radius:16px;
+        gap:7px;
+        margin:8px 0 0;
+        padding:9px 10px;
+        border-radius:14px;
         background:#fffaf2;
         border:1px solid #eadcc8;
-        color:#4b3a24;
       }
-      .katapataOutputUnlockPanelV17 strong{
-        font-size:12px;
-        font-weight:950;
-      }
-      .katapataOutputUnlockPanelV17 p{
+      .katapataUnlockInlineButtonBox p{
         margin:0;
         font-size:10px;
         line-height:1.45;
         font-weight:760;
         color:#5b4d3b;
       }
-      .katapataOutputUnlockPanelV17 button{
+      .katapataUnlockInlineButtonBox button{
         width:100%;
         min-height:38px;
         border-radius:14px;
       }
-      .katapataUnlockDialogV17{
-        position:fixed;
-        inset:0;
-        z-index:2147483000;
-        display:grid;
-        place-items:center;
-        padding:18px;
-        background:rgba(23,23,23,.38);
-      }
-      .katapataUnlockDialogCardV17{
-        width:min(460px, 96vw);
-        max-height:92vh;
-        overflow:auto;
-        background:#fffdf8;
-        border:1px solid #e4ded4;
-        border-radius:24px;
-        box-shadow:0 24px 80px rgba(0,0,0,.22);
-        padding:18px;
-        color:#171717;
-      }
-      .katapataUnlockDialogCardV17 h2{
-        margin:0 0 8px;
-        font-size:18px;
-        font-weight:950;
-      }
-      .katapataUnlockDialogCardV17 p{
-        margin:0 0 10px;
-        font-size:12px;
-        line-height:1.65;
-        font-weight:760;
-        color:#5b4d3b;
-      }
-      .katapataUnlockDialogInputV17{
-        display:grid;
-        gap:8px;
-        margin:10px 0;
-      }
-      .katapataUnlockDialogInputV17 input{
-        width:100%;
-        height:42px;
-        border:1px solid #ddd4c7;
-        border-radius:14px;
-        padding:0 12px;
-        font-size:15px;
-        font-weight:900;
-        box-sizing:border-box;
-        text-transform:uppercase;
-        background:#fff;
-        color:#171717;
-      }
-      .katapataUnlockDialogActionsV17,
-      .katapataUnlockDialogPrintsV17{
-        display:grid;
-        grid-template-columns:1fr 1fr;
-        gap:8px;
-        margin-top:10px;
-      }
-      .katapataUnlockDialogActionsV17 button,
-      .katapataUnlockDialogPrintsV17 button{
-        min-height:38px;
-        border-radius:14px;
-      }
-      .katapataUnlockDialogActionsV17 .sub,
-      .katapataUnlockDialogPrintsV17 .sub{
-        background:#8e7e68;
-      }
-      .katapataUnlockMessage{
-        display:none;
-        margin-top:8px;
-        padding:9px 10px;
-        border-radius:13px;
-        font-size:11px;
-        line-height:1.45;
-        font-weight:850;
-      }
-      .katapataUnlockMessage.ok{display:block;background:#eef8ed;border:1px solid #b8dfb5;color:#275d2d;}
-      .katapataUnlockMessage.warn{display:block;background:#fff6e3;border:1px solid #f0d18c;color:#7a5517;}
-      .katapataUnlockMessage.bad{display:block;background:#fff0ef;border:1px solid #e5aaa2;color:#8b2d25;}
-      #katapataUnlockPrintsV17[hidden]{display:none!important;}
-      @media (max-width:560px){
-        .katapataUnlockDialogActionsV17,
-        .katapataUnlockDialogPrintsV17{grid-template-columns:1fr;}
+      .katapataPurchaseInfoNoteV16{
+        display:none !important;
       }
     `;
     document.head.appendChild(style);
   }
 
-  function hideOutputNotes(){
-    const main = document.querySelector('.main[data-stage="output"]');
-    if (!main) return;
-    main.querySelectorAll('.outputCompactNotes, .outputCompactNote').forEach(el => {
-      el.setAttribute('hidden', 'hidden');
-      el.style.display = 'none';
+  function noteLooksLikeRemovable(el){
+    if (!el || el.closest('.katapataUnlockInlineButtonBox') || el.closest('.katapataPayUnlock')) return false;
+    const text = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!text) return false;
+    return (
+      /縮小サンプルPDF.*確認用/.test(text) ||
+      /通常サイズ.*A4分割印刷PDF.*有料/.test(text) ||
+      /購入後に利用できます/.test(text) ||
+      /確認表示.*確定画面/.test(text) ||
+      /実寸ではありません/.test(text) ||
+      /補助線.*マーク/.test(text)
+    );
+  }
+
+  function hideRemovableNotes(overlay){
+    if (!overlay) return;
+    overlay.querySelectorAll('p, div, section, article').forEach(el => {
+      // 大きいコンテナを消さないよう、短めの説明ブロックだけを対象にする。
+      const text = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (text.length > 160) return;
+      if (noteLooksLikeRemovable(el)) {
+        el.classList.add('katapataPurchaseInfoNoteV16');
+        el.setAttribute('hidden', 'hidden');
+        el.style.display = 'none';
+      }
     });
   }
 
-  function createPanel(){
-    const main = document.querySelector('.main[data-stage="output"]');
-    if (!main) return;
-    if (main.querySelector('#katapataOutputUnlockPanelV17')) return;
-    const panel = document.createElement('section');
-    panel.id = 'katapataOutputUnlockPanelV17';
-    panel.className = 'katapataOutputUnlockPanelV17';
-    panel.innerHTML = `
-      <strong>${esc(t('支払い済みの方', 'Already paid?'))}</strong>
-      <p>${esc(t('メールで届いた解除コードを入力すると、有料PDFを出力できます。', 'Enter the unlock code from the email to export the paid PDFs.'))}</p>
-      <button type="button" id="katapataOutputUnlockButtonV17">${esc(t('解除コード入力', 'Enter unlock code'))}</button>
+  function openUnlockInline(){
+    const overlay = document.getElementById('katapataPayOverlay');
+    if (!overlay) return;
+    overlay.classList.add('katapataUnlockInlineOpen');
+    const unlock = overlay.querySelector('.katapataPayUnlock');
+    if (unlock) {
+      unlock.removeAttribute('hidden');
+      unlock.style.display = 'block';
+      try { if (typeof window.katapataUpdateUnlockStatus === 'function') window.katapataUpdateUnlockStatus(); } catch (_) {}
+      setTimeout(() => {
+        try { unlock.scrollIntoView({ behavior:'smooth', block:'center' }); } catch (_) {}
+        const input = document.getElementById('katapataUnlockCode');
+        if (input) {
+          input.disabled = false;
+          input.readOnly = false;
+          input.style.pointerEvents = 'auto';
+          try { input.focus(); } catch (_) {}
+        }
+      }, 60);
+    }
+  }
+
+  function ensureUnlockButton(overlay){
+    if (!overlay || overlay.querySelector('#katapataUnlockInlineButtonBox')) return;
+    const box = document.createElement('section');
+    box.id = 'katapataUnlockInlineButtonBox';
+    box.className = 'katapataUnlockInlineButtonBox';
+    box.innerHTML = `
+      <p>${payText('支払い済みの方は、メールで届いた解除コードを入力してください。', 'If you have already paid, enter the unlock code from the email.')}</p>
+      <button type="button" id="katapataOpenUnlockInlineButton">${payText('解除コード入力', 'Enter unlock code')}</button>
     `;
-    panel.addEventListener('click', function(e){
-      const btn = e.target && e.target.closest ? e.target.closest('#katapataOutputUnlockButtonV17') : null;
-      if (!btn) return;
-      e.preventDefault();
-      openUnlockDialog(currentProductKey());
+    box.addEventListener('click', function(e){
+      const btn = e.target && e.target.closest ? e.target.closest('#katapataOpenUnlockInlineButton') : null;
+      if (btn) { e.preventDefault(); openUnlockInline(); }
     }, true);
 
-    const notes = main.querySelector('.outputCompactNotes');
-    if (notes && notes.parentElement) {
-      notes.parentElement.insertBefore(panel, notes);
+    // 「戻る：確定」ボタンの直前、または購入本文の末尾へ置く。
+    const footerBack = Array.from(overlay.querySelectorAll('button')).find(btn => /戻る|Back/.test(String(btn.textContent || '')));
+    if (footerBack && footerBack.parentElement) {
+      footerBack.parentElement.insertBefore(box, footerBack);
       return;
     }
-    const printActions = main.querySelector('.printActions');
-    if (printActions && printActions.parentElement) {
-      printActions.insertAdjacentElement('afterend', panel);
-      return;
-    }
-    const panelTarget = main.querySelector('.side .panel:last-child') || main.querySelector('.side') || main;
-    panelTarget.appendChild(panel);
+    const body = overlay.querySelector('.katapataPayBody') || overlay.querySelector('.katapataPayCard') || overlay;
+    body.appendChild(box);
   }
 
-  function closeUnlockDialog(){
-    const old = document.getElementById('katapataUnlockDialogV17');
+  function cleanupPurchaseModal(){
+    ensureStyle();
+    const overlay = document.getElementById('katapataPayOverlay');
+    if (!overlay) return;
+
+    // モーダルが開き直されたら、解除欄はまず閉じた状態に戻す。
+    if (!overlay.__katapataV16Initialized) {
+      overlay.classList.remove('katapataUnlockInlineOpen');
+      overlay.__katapataV16Initialized = true;
+    }
+
+    // 解除コード欄は隠すが、DOM自体は残す。ボタンで再表示する。
+    overlay.querySelectorAll('.katapataPayUnlock').forEach(el => {
+      if (!overlay.classList.contains('katapataUnlockInlineOpen')) {
+        el.setAttribute('hidden', 'hidden');
+        el.style.display = 'none';
+      } else {
+        el.removeAttribute('hidden');
+        el.style.display = 'block';
+      }
+    });
+
+    // 保存データ読込は購入画面では出さない。
+    overlay.querySelectorAll('button').forEach(btn => {
+      const attr = String(btn.getAttribute('onclick') || '');
+      const text = String(btn.textContent || '');
+      if (attr.includes('katapataLoadOutputCapableSavedData') || /保存データを読み込む|Import saved data/i.test(text)) {
+        btn.setAttribute('hidden', 'hidden');
+        btn.style.display = 'none';
+      }
+    });
+
+    hideRemovableNotes(overlay);
+    ensureUnlockButton(overlay);
+  }
+
+  const prevOpenPayment = (typeof window.katapataOpenPaymentConfirm === 'function') ? window.katapataOpenPaymentConfirm : null;
+  if (prevOpenPayment && !prevOpenPayment.__katapataV16Cleaned) {
+    const wrapped = function katapataOpenPaymentConfirmV16Cleaned(){
+      const result = prevOpenPayment.apply(this, arguments);
+      setTimeout(cleanupPurchaseModal, 0);
+      setTimeout(cleanupPurchaseModal, 80);
+      setTimeout(cleanupPurchaseModal, 250);
+      return result;
+    };
+    wrapped.__katapataV16Cleaned = true;
+    window.katapataOpenPaymentConfirm = wrapped;
+  }
+
+  const observer = new MutationObserver(() => cleanupPurchaseModal());
+  try { observer.observe(document.documentElement, { childList:true, subtree:true }); } catch (_) {}
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', cleanupPurchaseModal, { once:true });
+  } else {
+    cleanupPurchaseModal();
+  }
+
+  window.katapataPurchaseModalUnlockButtonV16Installed = true;
+})();
+</script>
+<script id="katapata-v19-output-unlock-dialog-safe">
+/*
+ * KATAPATA v19 safe output unlock dialog
+ * Stable v16 base + output-stage unlock button + persistent PDF dialog.
+ * This script is appended only before the final </body> to avoid leaking into print templates.
+ */
+(function katapataInstallV19SafeOutputUnlock(){
+  'use strict';
+  if (window.katapataV19SafeOutputUnlockInstalled) return;
+  window.katapataV19SafeOutputUnlockInstalled = true;
+
+  function txt(ja, en){
+    try { if (typeof window.katapataPayText === 'function') return window.katapataPayText(ja, en); } catch (_) {}
+    try { return document.documentElement && document.documentElement.lang === 'en' ? en : ja; } catch (_) { return ja; }
+  }
+  function esc(v){
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; });
+  }
+  function productKey(value){
+    const raw = String(value == null ? '' : value).toLowerCase();
+    if (/pants|パンツ|\bp\b|p-/.test(raw)) return 'pants';
+    if (/skirt|スカート|\bs\b|s-/.test(raw)) return 'skirt';
+    if (/tops|top|トップス|身頃|袖|all|front|back|sleeve|\bt\b|t-/.test(raw)) return 'tops';
+    return '';
+  }
+  function currentProductKey(){
+    try { if (window.katapataSelectedCheckoutProductKey) return productKey(window.katapataSelectedCheckoutProductKey) || 'tops'; } catch (_) {}
+    try { const s = sessionStorage.getItem('katapata_selected_checkout_product_key'); if (s) return productKey(s) || 'tops'; } catch (_) {}
+    try {
+      if (typeof window.katapataPaymentProductInfo === 'function') {
+        const info = window.katapataPaymentProductInfo();
+        if (info && info.key) return productKey(info.key) || 'tops';
+        if (info && info.name) return productKey(info.name) || 'tops';
+      }
+    } catch (_) {}
+    try {
+      if (typeof confirmPreviewPart !== 'undefined') {
+        const p = String(confirmPreviewPart || '').toLowerCase();
+        if (p === 'skirt') return 'skirt';
+        if (p === 'pants') return 'pants';
+      }
+    } catch (_) {}
+    return 'tops';
+  }
+  function productName(key){
+    key = productKey(key) || 'tops';
+    const ja = { tops:'トップス原型PDF', skirt:'スカート原型PDF', pants:'パンツ原型PDF' };
+    const en = { tops:'Tops sloper PDF', skirt:'Skirt sloper PDF', pants:'Pants sloper PDF' };
+    return txt(ja[key] || ja.tops, en[key] || en.tops);
+  }
+  function setPendingKind(key){
+    key = productKey(key) || currentProductKey();
+    try { window.katapataPendingPaymentKind = key; } catch (_) {}
+    try { window.katapataSelectedCheckoutProductKey = key; } catch (_) {}
+    try { sessionStorage.setItem('katapata_selected_checkout_product_key', key); } catch (_) {}
+    return key;
+  }
+  function isOutputStage(){
+    try {
+      const main = document.querySelector('.main');
+      if (main && main.getAttribute('data-stage') === 'output') return true;
+      const active = document.querySelector('.appStagebar .stage.active, .stagebar .stage.active');
+      return !!(active && String(active.getAttribute('data-stage') || '').toLowerCase() === 'output');
+    } catch (_) { return false; }
+  }
+  function ensureStyle(){
+    if (document.getElementById('katapataV19OutputUnlockStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'katapataV19OutputUnlockStyle';
+    style.textContent = `
+      .main[data-stage="output"] .outputCompactNotes,
+      .main[data-stage="output"] .outputCompactNote{display:none!important;}
+      .katapataV19OutputUnlockPanel{display:grid;gap:8px;margin-top:10px;padding:11px 12px;border:1px solid #eadcc8;background:#fffaf2;border-radius:16px;color:#302b25;box-shadow:0 8px 18px rgba(80,58,34,.06);}
+      .katapataV19OutputUnlockPanel strong{font-size:12px;font-weight:950;}
+      .katapataV19OutputUnlockPanel p{margin:0;font-size:10px;line-height:1.45;font-weight:760;color:#5b4d3b;}
+      .katapataV19OutputUnlockPanel button{width:100%;min-height:42px;border-radius:15px;font-size:13px;font-weight:950;}
+      #katapataV19Dialog{position:fixed;inset:0;z-index:2147483600;display:grid;place-items:center;background:rgba(30,24,18,.35);padding:16px;box-sizing:border-box;}
+      #katapataV19Dialog .card{width:min(560px,calc(100vw - 32px));background:#fffdf8;border:1px solid #eadcc8;border-radius:22px;box-shadow:0 24px 80px rgba(0,0,0,.23);padding:18px;box-sizing:border-box;color:#171717;}
+      #katapataV19Dialog h2{margin:0 0 8px;font-size:18px;font-weight:950;}
+      #katapataV19Dialog p{margin:0 0 10px;font-size:12px;line-height:1.65;font-weight:800;color:#5f5348;}
+      #katapataV19Dialog .status{border-radius:14px;padding:9px 10px;margin:8px 0;font-size:11px;line-height:1.55;font-weight:850;background:#fbf7ef;border:1px solid #eadcc8;color:#5b4d3b;}
+      #katapataV19Dialog .status.ok{background:#eef8ed;border-color:#b8dfb5;color:#275d2d;}
+      #katapataV19Dialog .status.bad{background:#fff0ef;border-color:#e5aaa2;color:#8b2d25;}
+      #katapataV19Dialog input{width:100%;height:42px;border:1px solid #ddd0bf;border-radius:14px;background:#fff;padding:0 12px;box-sizing:border-box;font-size:14px;font-weight:900;letter-spacing:.04em;}
+      #katapataV19Dialog .buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+      #katapataV19Dialog button{min-height:42px;border:0;border-radius:14px;background:#171717;color:#fff;font-weight:950;cursor:pointer;padding:8px 12px;}
+      #katapataV19Dialog button.sub{background:#8e7e68;}
+      #katapataV19Dialog button.light{background:#f7f1e7;color:#5d5247;border:1px solid #eadcc8;}
+      #katapataV19Dialog .pdfBox{display:none;margin-top:12px;border-top:1px dashed #e1d4c3;padding-top:12px;}
+      #katapataV19Dialog.is-unlocked .pdfBox{display:block;}
+      #katapataV19Dialog.is-unlocked .unlockBox{display:none;}
+      @media (max-width:560px){#katapataV19Dialog .buttons{grid-template-columns:1fr;}#katapataV19Dialog .card{padding:15px;border-radius:18px;}}
+    `;
+    document.head.appendChild(style);
+  }
+  function ensureOutputPanel(){
+    ensureStyle();
+    if (!isOutputStage()) return;
+    const side = document.getElementById('sideContent') || document.querySelector('.side');
+    if (!side) return;
+    let panel = document.getElementById('katapataV19OutputUnlockPanel');
+    if (!panel) {
+      panel = document.createElement('section');
+      panel.id = 'katapataV19OutputUnlockPanel';
+      panel.className = 'katapataV19OutputUnlockPanel';
+      panel.innerHTML = `<strong>${esc(txt('支払い済みの方', 'Already paid?'))}</strong>
+        <p>${esc(txt('メールで届いた解除コードを入力すると、有料PDFを出力できます。', 'Enter the unlock code from the email to export paid PDFs.'))}</p>
+        <button type="button" id="katapataV19OpenUnlock">${esc(txt('解除コード入力', 'Enter unlock code'))}</button>`;
+      panel.addEventListener('click', function(e){
+        const btn = e.target && e.target.closest ? e.target.closest('#katapataV19OpenUnlock') : null;
+        if (btn) { e.preventDefault(); openUnlockDialog(currentProductKey()); }
+      }, true);
+      const back = Array.from(side.querySelectorAll('button')).find(b => /戻る|Back/.test(String(b.textContent || '')));
+      if (back && back.parentElement && back.parentElement.parentElement === side) {
+        side.insertBefore(panel, back.parentElement);
+      } else {
+        side.appendChild(panel);
+      }
+    }
+  }
+  function closeOldDialogs(){
+    try { const old = document.getElementById('katapataUnlockOutputDialog'); if (old) old.remove(); } catch (_) {}
+  }
+  function closeDialog(){
+    const old = document.getElementById('katapataV19Dialog');
     if (old) old.remove();
   }
-
-  function showPrintButtons(kind){
-    const box = document.getElementById('katapataUnlockPrintsV17');
-    if (!box) return;
-    box.hidden = false;
-    box.querySelectorAll('[data-katapata-print]').forEach(btn => {
-      btn.onclick = function(ev){
-        ev.preventDefault();
-        const mode = btn.getAttribute('data-katapata-print') || 'normal';
-        try {
-          if (typeof window.katapataOpenPurchasedSnapshotPrint === 'function') {
-            window.katapataOpenPurchasedSnapshotPrint(kind, mode);
-            return;
-          }
-        } catch (error) { console.error(error); }
-        try { if (typeof window.setSaveMessage === 'function') window.setSaveMessage('購入済みPDF出力を開けませんでした。', 'bad'); } catch (_) {}
-      };
-    });
-  }
-
-  async function submitUnlock(kind){
-    kind = setCurrentProduct(kind || currentProductKey());
-    const input = document.getElementById('katapataUnlockCode');
-    const button = document.getElementById('katapataUnlockButton');
-    const msg = document.getElementById('katapataUnlockMessage');
-    if (button) button.disabled = true;
-    if (msg) {
-      msg.className = 'katapataUnlockMessage warn';
-      msg.textContent = t('解除コードを照合しています…', 'Checking the unlock code…');
-    }
+  function openPdf(kind, mode){
+    kind = setPendingKind(kind);
     try {
-      if (typeof window.katapataTryUnlockCode !== 'function') throw new Error('katapataTryUnlockCode is not available');
-      await window.katapataTryUnlockCode();
-      setTimeout(function(){
-        const text = String((msg && msg.textContent) || '');
-        let ok = /解除しました|利用できます|unlocked|export/i.test(text);
-        try { ok = ok || !!(typeof window.katapataOpenPurchasedSnapshotPrint === 'function' && typeof window.katapataIsPaidUnlocked === 'function' && window.katapataIsPaidUnlocked(kind)); } catch (_) {}
-        if (ok) {
-          if (msg) {
-            msg.className = 'katapataUnlockMessage ok';
-            msg.textContent = t('解除しました。下のボタンからPDFを出力できます。', 'Unlocked. You can export the PDFs from the buttons below.');
-          }
-          showPrintButtons(kind);
-        } else if (button) {
-          button.disabled = false;
-        }
-      }, 900);
-    } catch (error) {
-      console.error(error);
-      if (msg) {
-        msg.className = 'katapataUnlockMessage bad';
-        msg.textContent = t('解除コードの処理中にエラーが発生しました。', 'An error occurred while processing the unlock code.');
+      if (typeof window.katapataOpenPurchasedSnapshotPrint === 'function') {
+        window.katapataOpenPurchasedSnapshotPrint(kind, mode === 'tiled' ? 'tiled' : 'normal');
+        return;
       }
-      if (button) button.disabled = false;
-    }
+    } catch (error) { console.warn('katapataOpenPurchasedSnapshotPrint failed', error); }
+    try {
+      if (mode === 'tiled' && typeof window.startA4TiledPrint === 'function') { window.startA4TiledPrint(); return; }
+      if (typeof window.startFullSizePdf === 'function') { window.startFullSizePdf(); return; }
+    } catch (error) { console.error('paid pdf open failed', error); }
+    alert(txt('PDF出力を開けませんでした。', 'Could not open PDF output.'));
   }
-
+  function showUnlockedPdfDialog(kind){
+    kind = setPendingKind(kind);
+    ensureStyle();
+    closeOldDialogs();
+    let dlg = document.getElementById('katapataV19Dialog');
+    if (!dlg) {
+      openUnlockDialog(kind);
+      dlg = document.getElementById('katapataV19Dialog');
+    }
+    if (!dlg) return;
+    dlg.classList.add('is-unlocked');
+    const status = dlg.querySelector('#katapataUnlockMessage') || dlg.querySelector('.status');
+    if (status) {
+      status.className = 'status ok';
+      status.innerHTML = esc(txt('解除しました。通常サイズPDFとA4分割印刷PDFを出力できます。', 'Unlocked. You can export the full-size PDF and A4 tiled PDF.'));
+    }
+    try { if (typeof window.setSaveMessage === 'function') window.setSaveMessage('解除しました。PDF出力を選択してください。', 'ok'); } catch (_) {}
+  }
   function openUnlockDialog(kind){
-    kind = setCurrentProduct(kind || currentProductKey());
-    try { if (typeof window.katapataClosePaymentConfirm === 'function') window.katapataClosePaymentConfirm(); } catch (_) {}
-    closeUnlockDialog();
-    const div = document.createElement('div');
-    div.id = 'katapataUnlockDialogV17';
-    div.className = 'katapataUnlockDialogV17';
-    div.innerHTML = `
-      <div class="katapataUnlockDialogCardV17" role="dialog" aria-modal="true">
-        <h2>${esc(t('解除コード入力', 'Enter unlock code'))}</h2>
-        <p><strong>${esc(productLabel(kind))}</strong><br>${esc(t('メールで届いた解除コードを入力してください。', 'Enter the unlock code from the email.'))}</p>
-        <div id="katapataUnlockStatus" class="katapataUnlockStatus">${esc(t('解除コードを入力してください。', 'Please enter the unlock code.'))}</div>
-        <div class="katapataUnlockDialogInputV17">
-          <input id="katapataUnlockCode" type="text" autocomplete="off" inputmode="text" placeholder="KTTS-XXXX-XXX">
-          <button type="button" id="katapataUnlockButton">${esc(t('解除する', 'Unlock'))}</button>
-        </div>
-        <div id="katapataUnlockMessage" class="katapataUnlockMessage"></div>
-        <div id="katapataUnlockPrintsV17" class="katapataUnlockDialogPrintsV17" hidden>
-          <button type="button" data-katapata-print="normal">${esc(t('通常サイズPDF', 'Full-size PDF'))}</button>
-          <button type="button" class="sub" data-katapata-print="tiled">${esc(t('A4分割印刷PDF', 'A4 tiled PDF'))}</button>
-        </div>
-        <div class="katapataUnlockDialogActionsV17">
-          <button type="button" class="sub" data-close="1">${esc(t('閉じる', 'Close'))}</button>
-          <button type="button" data-purchase="1">${esc(t('購入画面へ', 'Go to purchase'))}</button>
+    kind = setPendingKind(kind);
+    ensureStyle();
+    closeOldDialogs();
+    closeDialog();
+    const dlg = document.createElement('div');
+    dlg.id = 'katapataV19Dialog';
+    dlg.innerHTML = `<div class="card" role="dialog" aria-modal="true">
+      <h2>${esc(txt('解除コード入力', 'Enter unlock code'))}</h2>
+      <p>${esc(productName(kind))}</p>
+      <div class="unlockBox">
+        <div id="katapataUnlockStatus" class="status">${esc(txt('メールで届いた解除コードを入力してください。', 'Enter the unlock code from the email.'))}</div>
+        <input id="katapataUnlockCode" type="text" autocomplete="off" inputmode="text" placeholder="KTTS-XXXX-XXX">
+        <div class="buttons">
+          <button type="button" id="katapataUnlockButton">${esc(txt('解除する', 'Unlock'))}</button>
+          <button type="button" class="light" data-v19-close="1">${esc(txt('閉じる', 'Close'))}</button>
         </div>
       </div>
-    `;
-    div.addEventListener('click', function(e){
-      if (e.target === div || (e.target.closest && e.target.closest('[data-close]'))) {
-        e.preventDefault();
-        closeUnlockDialog();
-        return;
-      }
-      const purchase = e.target && e.target.closest ? e.target.closest('[data-purchase]') : null;
-      if (purchase) {
-        e.preventDefault();
-        closeUnlockDialog();
-        try { if (typeof window.katapataOpenPaymentConfirm === 'function') window.katapataOpenPaymentConfirm(kind); } catch (_) {}
-        return;
-      }
+      <div class="pdfBox">
+        <div class="status ok">${esc(txt('購入済み原型からPDFを出力します。', 'PDFs will be exported from the purchased draft.'))}</div>
+        <div class="buttons">
+          <button type="button" data-v19-pdf="normal">${esc(txt('通常サイズPDF', 'Full-size PDF'))}</button>
+          <button type="button" class="sub" data-v19-pdf="tiled">${esc(txt('A4分割印刷PDF', 'A4 tiled PDF'))}</button>
+          <button type="button" class="light" data-v19-close="1" style="grid-column:1 / -1;">${esc(txt('閉じる', 'Close'))}</button>
+        </div>
+      </div>
+      <div id="katapataUnlockMessage" class="status" style="display:none"></div>
+    </div>`;
+    dlg.addEventListener('click', function(e){
+      const pdf = e.target && e.target.closest ? e.target.closest('[data-v19-pdf]') : null;
+      if (pdf) { e.preventDefault(); openPdf(kind, pdf.getAttribute('data-v19-pdf')); return; }
       const unlock = e.target && e.target.closest ? e.target.closest('#katapataUnlockButton') : null;
       if (unlock) {
         e.preventDefault();
-        submitUnlock(kind);
+        setPendingKind(kind);
+        const msg = document.getElementById('katapataUnlockMessage');
+        if (msg) { msg.style.display = 'block'; msg.className = 'status'; msg.textContent = txt('照合しています…', 'Checking…'); }
+        Promise.resolve()
+          .then(function(){ if (typeof window.katapataTryUnlockCode === 'function') return window.katapataTryUnlockCode(); throw new Error('NO_UNLOCK_FUNCTION'); })
+          .then(function(){
+            setTimeout(function(){
+              const message = String((document.getElementById('katapataUnlockMessage') || {}).textContent || '');
+              const ok = /解除しました|unlocked|PDF出力を利用できます/i.test(message) || (typeof window.katapataIsPaidUnlocked === 'function' && window.katapataIsPaidUnlocked(kind));
+              if (ok) showUnlockedPdfDialog(kind);
+            }, 1300);
+            setTimeout(function(){ showUnlockedPdfDialog(kind); }, 1700);
+          })
+          .catch(function(error){
+            if (msg) { msg.style.display = 'block'; msg.className = 'status bad'; msg.textContent = txt('解除できませんでした。コードを確認してください。', 'Could not unlock. Please check the code.'); }
+            console.error('KATAPATA v19 unlock failed', error);
+          });
+        return;
       }
+      const close = e.target && e.target.closest ? e.target.closest('[data-v19-close]') : null;
+      if (close || e.target === dlg) { e.preventDefault(); closeDialog(); }
     }, true);
-    div.addEventListener('keydown', function(e){
-      if (e.key === 'Enter' && e.target && e.target.id === 'katapataUnlockCode') {
-        e.preventDefault(); submitUnlock(kind);
-      }
-      if (e.key === 'Escape') closeUnlockDialog();
-    });
-    document.body.appendChild(div);
+    document.body.appendChild(dlg);
     try { if (typeof window.katapataUpdateUnlockStatus === 'function') window.katapataUpdateUnlockStatus(kind); } catch (_) {}
-    setTimeout(function(){
-      const input = document.getElementById('katapataUnlockCode');
-      if (input) { input.disabled = false; input.readOnly = false; input.focus(); }
-    }, 60);
+    setTimeout(function(){ const input = document.getElementById('katapataUnlockCode'); if (input) { input.disabled=false; input.readOnly=false; try { input.focus(); } catch (_) {} } }, 60);
   }
 
-  function refresh(){
-    ensureStyle();
-    hideOutputNotes();
-    createPanel();
+  // 解除成功後、旧ダイアログが閉じてしまってもv19のPDFダイアログを最後に出す。
+  const prevTry = (typeof window.katapataTryUnlockCode === 'function') ? window.katapataTryUnlockCode : null;
+  if (prevTry && !window.katapataTryUnlockCodePatchedV19) {
+    window.katapataTryUnlockCodePatchedV19 = true;
+    window.katapataTryUnlockCode = async function katapataTryUnlockCodeV19(){
+      const kind = currentProductKey();
+      const result = await prevTry.apply(this, arguments);
+      setTimeout(function(){
+        const msg = String((document.getElementById('katapataUnlockMessage') || {}).textContent || '');
+        const ok = /解除しました|unlocked|PDF出力を利用できます/i.test(msg) || (typeof window.katapataIsPaidUnlocked === 'function' && window.katapataIsPaidUnlocked(kind));
+        if (ok) showUnlockedPdfDialog(kind);
+      }, 1500);
+      return result;
+    };
   }
-  document.addEventListener('click', function(e){
-    try {
-      const btn = e.target && e.target.closest ? e.target.closest('.purchaseTarget') : null;
-      if (btn) setCurrentProduct(productKeyFromText(btn.textContent || ''));
-    } catch (_) {}
-    setTimeout(refresh, 60);
-  }, true);
+
+  const refresh = function(){ try { ensureOutputPanel(); } catch (error) { console.warn('KATAPATA v19 refresh failed', error); } };
   const observer = new MutationObserver(function(){ refresh(); });
   try { observer.observe(document.documentElement, { childList:true, subtree:true, attributes:true, attributeFilter:['data-stage','class'] }); } catch (_) {}
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refresh, { once:true });
   else refresh();
-  window.katapataOpenOutputUnlockDialog = openUnlockDialog;
-})();
-</script>
-
-
-<script id="katapata-v18-persistent-pdf-panel">
-/*
- * KATAPATA v18 persistent purchased-PDF panel
- * A4分割PDFを開いたあとでも、元画面に購入済みPDF出力パネルを残し、通常PDFへ戻れるようにする。
- */
-(function katapataInstallPersistentPdfPanelV18(){
-  'use strict';
-  const PANEL_ID = 'katapataPersistentPdfPanelV18';
-  const STYLE_ID = 'katapataPersistentPdfPanelStyleV18';
-  const SNAPSHOT_KEY = 'katapata_paid_print_snapshots_v2';
-  const PRODUCT_NAMES = {
-    tops: { ja: 'トップス', en: 'Tops' },
-    skirt: { ja: 'スカート', en: 'Skirt' },
-    pants: { ja: 'パンツ', en: 'Pants' }
-  };
-
-  function isEnglish(){
-    try {
-      const lang = (document.documentElement.getAttribute('lang') || '').toLowerCase();
-      if (lang.startsWith('en')) return true;
-      if (window.KATAPATA_LANG === 'en') return true;
-      if (localStorage.getItem('katapata_lang') === 'en') return true;
-    } catch (_) {}
-    return false;
-  }
-  function t(ja, en){ return isEnglish() ? (en || ja) : ja; }
-  function esc(s){
-    return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  }
-  function readJson(key, fallback){
-    try { return JSON.parse(localStorage.getItem(key) || '') || fallback; } catch (_) { return fallback; }
-  }
-  function readSnapshots(){ return readJson(SNAPSHOT_KEY, {}); }
-  function productLabel(key){
-    const p = PRODUCT_NAMES[key] || { ja: key, en: key };
-    return isEnglish() ? p.en : p.ja;
-  }
-  function snapshotKeys(){
-    const map = readSnapshots();
-    return ['tops','skirt','pants'].filter(k => map && map[k] && map[k].svgText);
-  }
-  function currentPreferredKey(keys){
-    try {
-      const pending = window.katapataPendingPaymentKind;
-      if (pending && keys.includes(pending)) return pending;
-    } catch (_) {}
-    try {
-      const active = document.querySelector('.purchaseTarget.active, .purchaseTarget.selected, .stage.active, [data-product].active, [data-product].selected');
-      const txt = active ? (active.textContent || '').toLowerCase() : '';
-      if (/skirt|スカート/.test(txt) && keys.includes('skirt')) return 'skirt';
-      if (/pants|パンツ/.test(txt) && keys.includes('pants')) return 'pants';
-      if (/tops|トップス|身頃|袖/.test(txt) && keys.includes('tops')) return 'tops';
-    } catch (_) {}
-    return keys[0] || 'tops';
-  }
-  function ensureStyle(){
-    if (document.getElementById(STYLE_ID)) return;
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = `
-      #${PANEL_ID}{position:fixed;right:14px;bottom:14px;z-index:2147483000;width:min(360px,calc(100vw - 28px));box-sizing:border-box;background:#fffdf8;border:1px solid #eadcc8;border-radius:20px;box-shadow:0 18px 48px rgba(55,40,24,.22);padding:12px;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#171717}
-      #${PANEL_ID}.is-hidden{display:none}
-      #${PANEL_ID} .kp18-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
-      #${PANEL_ID} .kp18-title{font-size:13px;font-weight:950;line-height:1.25}
-      #${PANEL_ID} .kp18-note{font-size:10px;line-height:1.45;color:#6f5e4c;font-weight:800;margin:3px 0 0}
-      #${PANEL_ID} .kp18-close{width:28px;height:28px;border-radius:999px;border:0;background:#8e7e68;color:#fff;font-weight:950;cursor:pointer;flex:0 0 auto;padding:0}
-      #${PANEL_ID} .kp18-row{display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px}
-      #${PANEL_ID} select{height:34px;border:1px solid #ddd4c7;border-radius:12px;background:#fff;padding:0 10px;font-size:12px;font-weight:900;color:#302b25}
-      #${PANEL_ID} .kp18-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-      #${PANEL_ID} button.kp18-print{min-height:38px;border:0;border-radius:13px;background:#171717;color:#fff;font-size:11px;font-weight:950;cursor:pointer;padding:8px 9px;line-height:1.25}
-      #${PANEL_ID} button.kp18-print.sub{background:#8e7e68}
-      #${PANEL_ID} .kp18-status{display:none;margin-top:8px;padding:7px 9px;border-radius:12px;background:#fff6e6;border:1px solid #efd29a;color:#6c4d17;font-size:10px;font-weight:850;line-height:1.35}
-      #${PANEL_ID} .kp18-status.show{display:block}
-      @media (max-width:560px){#${PANEL_ID}{right:10px;bottom:10px;width:calc(100vw - 20px);padding:10px;border-radius:18px}#${PANEL_ID} .kp18-actions{grid-template-columns:1fr}#${PANEL_ID} button.kp18-print{min-height:36px}}
-      @media print{#${PANEL_ID}{display:none!important}}
-    `;
-    document.head.appendChild(style);
-  }
-  function showStatus(msg){
-    const el = document.querySelector('#' + PANEL_ID + ' .kp18-status');
-    if (!el) return;
-    el.textContent = msg;
-    el.classList.add('show');
-    setTimeout(() => { try { el.classList.remove('show'); } catch (_) {} }, 5000);
-  }
-  function createOrUpdatePanel(){
-    const keys = snapshotKeys();
-    let panel = document.getElementById(PANEL_ID);
-    if (!keys.length) {
-      if (panel) panel.classList.add('is-hidden');
-      return;
-    }
-    ensureStyle();
-    const preferred = currentPreferredKey(keys);
-    if (!panel) {
-      panel = document.createElement('div');
-      panel.id = PANEL_ID;
-      document.body.appendChild(panel);
-      panel.addEventListener('click', function(e){
-        const close = e.target && e.target.closest ? e.target.closest('.kp18-close') : null;
-        if (close) {
-          e.preventDefault();
-          panel.classList.add('is-hidden');
-          sessionStorage.setItem('katapata_pdf_panel_v18_closed_once', '1');
-          return;
-        }
-        const btn = e.target && e.target.closest ? e.target.closest('[data-kp18-print]') : null;
-        if (!btn) return;
-        e.preventDefault();
-        const select = panel.querySelector('select[data-kp18-product]');
-        const kind = select ? select.value : (btn.getAttribute('data-kind') || preferred);
-        const mode = btn.getAttribute('data-kp18-print') || 'normal';
-        try {
-          if (typeof window.katapataOpenPurchasedSnapshotPrint === 'function') {
-            window.katapataOpenPurchasedSnapshotPrint(kind, mode);
-            showStatus(mode === 'tiled' ? t('A4分割PDFを開きました。このパネルから通常PDFも開けます。','A4 tiled PDF opened. You can still open the full-size PDF from this panel.') : t('通常PDFを開きました。このパネルからA4分割PDFも開けます。','Full-size PDF opened. You can still open the A4 tiled PDF from this panel.'));
-          } else {
-            showStatus(t('PDF出力機能を呼び出せませんでした。ページを再読み込みしてください。','Could not call the PDF export function. Please reload the page.'));
-          }
-        } catch (err) {
-          console.warn('KATAPATA v18 PDF open failed', err);
-          showStatus(t('PDF出力を開けませんでした。ポップアップブロックを確認してください。','Could not open PDF output. Please check popup blocking.'));
-        }
-      }, true);
-    }
-    const wasClosed = sessionStorage.getItem('katapata_pdf_panel_v18_closed_once') === '1';
-    // 新しくスナップショットが増えたときは再表示する
-    const lastKeys = panel.getAttribute('data-keys') || '';
-    const nextKeys = keys.join(',');
-    if (lastKeys !== nextKeys) sessionStorage.removeItem('katapata_pdf_panel_v18_closed_once');
-    panel.setAttribute('data-keys', nextKeys);
-    if (wasClosed && lastKeys === nextKeys) return;
-    panel.classList.remove('is-hidden');
-    const options = keys.map(k => `<option value="${esc(k)}" ${k===preferred?'selected':''}>${esc(productLabel(k))}</option>`).join('');
-    panel.innerHTML = `
-      <div class="kp18-head">
-        <div>
-          <div class="kp18-title">${esc(t('購入済みPDF出力', 'Purchased PDF output'))}</div>
-          <div class="kp18-note">${esc(t('A4分割PDFを開いた後も、このパネルから通常PDFへ戻れます。', 'After opening the A4 tiled PDF, you can return to the full-size PDF from this panel.'))}</div>
-        </div>
-        <button type="button" class="kp18-close" aria-label="close">×</button>
-      </div>
-      <div class="kp18-row">
-        ${keys.length > 1 ? `<select data-kp18-product>${options}</select>` : `<input type="hidden" data-kp18-product value="${esc(preferred)}"><div class="kp18-note"><strong>${esc(productLabel(preferred))}</strong></div>`}
-        <div class="kp18-actions">
-          <button type="button" class="kp18-print" data-kp18-print="normal">${esc(t('通常サイズPDF', 'Full-size PDF'))}</button>
-          <button type="button" class="kp18-print sub" data-kp18-print="tiled">${esc(t('A4分割印刷PDF', 'A4 tiled PDF'))}</button>
-        </div>
-        <div class="kp18-status"></div>
-      </div>
-    `;
-  }
-  function refreshSoon(){ setTimeout(createOrUpdatePanel, 80); setTimeout(createOrUpdatePanel, 500); }
-  window.katapataRefreshPurchasedPdfPanelV18 = createOrUpdatePanel;
-  document.addEventListener('visibilitychange', refreshSoon);
-  document.addEventListener('click', refreshSoon, true);
-  window.addEventListener('storage', refreshSoon);
-  const observer = new MutationObserver(refreshSoon);
-  try { observer.observe(document.documentElement, { childList:true, subtree:true, attributes:true, attributeFilter:['data-stage','class'] }); } catch (_) {}
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refreshSoon, { once:true });
-  else refreshSoon();
+  window.katapataOpenV19UnlockDialog = openUnlockDialog;
+  window.katapataShowV19UnlockedPdfDialog = showUnlockedPdfDialog;
 })();
 </script>
 
