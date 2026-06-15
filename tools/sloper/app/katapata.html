@@ -19,21 +19,21 @@
   transform: translateY(6px) !important;
 }
 </style></head><body class="opening-active"><div class="openingOverlay" id="openingOverlay" aria-label="KATAPATA opening"><main class="openingStage"><section class="openingIntro"><div class="openingLogo" id="openingLogo"></div><div class="openingTagline" id="openingTagline">Automatic Sloper Drafting Tool</div><div class="openingCanvasWrap"><canvas id="openingCanvas" aria-label="KATAPATA opening animation"></canvas></div><button class="openingEnter" id="openingEnter" type="button">ENTER</button></section></main></div><div class="wrap"><div class="card"><div class="top appTop"><div class="appTopMain"><div class="brandline appBrand"><div><h1>KATAPATA</h1><div class="note">原型自動作成ツール</div></div></div><div class="stagebar appStagebar"><button class="stage active" data-stage="measure" type="button"><span>1</span>寸法入力</button><button class="stage" data-stage="adjust" type="button"><span>2</span>トップス調整</button><button class="stage" data-stage="lower" type="button"><span>+</span>ボトムス調整</button><button class="stage" data-stage="dart" type="button"><span>3</span>ダーツ移動</button><button class="stage" data-stage="confirm" type="button"><span>4</span>確定</button><button class="stage" data-stage="output" type="button"><span>5</span>出力</button></div></div><button id="resetBtn" class="sub appReset">初期化</button><span id="resetBtnHome" hidden aria-hidden="true"></span></div><div class="main"><div class="canvas"><svg id="svg" xmlns="http://www.w3.org/2000/svg" viewBox="35 -74 846 520"><g id="staticLayer"></g><g id="dynamicLayer"></g><g id="controlLines"></g><g id="controlHandles"></g><g id="mainHandles"></g></svg><div class="measureCanvas" aria-hidden="true"><div class="measureHero"><div class="measureHeroTitle"><span>MEASUREMENT GUIDE</span><strong>採寸位置を見ながら入力</strong></div><div class="measureFigureGrid"><div class="measureFigure frontFigure"><div class="torsoWrap front"><img id="measureFrontImg" src="" alt="前向きトルソー"><svg class="guideSvg" viewBox="0 0 594 1122" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><defs><marker id="guideArrow" markerWidth="20" markerHeight="20" refX="9.5" refY="10" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M 3 3 L 17 10 L 3 17" fill="none" stroke="#171717" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><g class="measureGuide bustGuide"><path class="wrapGuidePath" d="M 130 304 C 106 316, 108 342, 150 356 C 204 370, 390 370, 444 356 C 486 342, 488 316, 464 304"/><text x="297" y="326">バスト</text></g><g class="measureGuide waistGuide"><path class="wrapGuidePath" d="M 162 488 C 136 500, 136 528, 182 542 C 228 556, 364 556, 410 542 C 456 528, 456 500, 430 488"/><text x="296" y="508">ウエスト</text></g><g class="measureGuide hipMeasureGuide"><path class="wrapGuidePath" d="M 118 666 C 86 682, 90 718, 150 736 C 212 754, 382 754, 444 736 C 504 718, 508 682, 476 666"/><text x="297" y="690">ヒップ</text></g><g class="measureGuide frontSleeveGuide verticalGuide"><line x1="506" y1="208" x2="548" y2="738"/><circle cx="506" cy="208" r="9"/><circle cx="548" cy="738" r="9"/><text x="566" y="492">袖丈</text></g></svg></div></div><div class="measureFigure sideFigure"><div class="torsoWrap side"><img id="measureSideImg" src="" alt="横向きトルソー"><svg class="guideSvg" viewBox="0 0 334 1118" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="measureGuide backGuide verticalGuide"><line x1="270" y1="118" x2="262" y2="492"/><circle cx="270" cy="118" r="9"/><circle cx="262" cy="492" r="9"/><text x="286" y="320">背丈</text></g></svg></div></div></div></div></div></div><div class="side" id="sideContent"></div></div></div></div></div></div><script>(()=>{const a=["CndpbmRvdy5fX2thdGFwYXRhRXJyb3JzID0gW107CndpbmRvdy5hZGRFdmVudExpc3RlbmVyKCdlcnJvcicsIChldmVudCkgPT4gewogd2luZG93Ll9fa2F0YXBhdGFFcnJvcnMucHVzaCh7CiAgbWVzc2FnZTogZXZlbnQubWVzc2FnZSwKICBmaWxlbmFtZTogZXZlbnQuZmlsZW5hbWUsCiAgbGluZW5vOiBldmVudC5saW5lbm8sCiAgY29sbm86IGV2ZW50LmNvbG5vCiB9KTsKfSk7Cg=="].join("");const b=atob(a);const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);(0,eval)(new TextDecoder().decode(u));})();</script><script id="katapata-payment-config">
-// Stripeなどの決済URL、または支払前の注意ページURLが決まったら設定してください。
-// 例: window.KATAPATA_CHECKOUT_URL = "https://buy.stripe.com/xxxxxxxx";
-// 言語別に分ける場合:
-// window.KATAPATA_CHECKOUT_URL = { ja: "https://example.com/ja", en: "https://example.com/en" };
-window.KATAPATA_CHECKOUT_URL = window.KATAPATA_CHECKOUT_URL || {
+// Stripe Payment Links（商品別）
+window.KATAPATA_CHECKOUT_URLS = window.KATAPATA_CHECKOUT_URLS || {
   tops: "https://buy.stripe.com/4gM28j5bY9oG6PE5RX2Ry00",
   skirt: "https://buy.stripe.com/5kQ7sDfQC58q1vka8d2Ry02",
   pants: "https://buy.stripe.com/6oU8wHgUGgR86PE9492Ry01"
 };
 
+// 既存の決済処理は KATAPATA_CHECKOUT_URL を「文字列」として読むため、初期値はトップスURLにします。
+// 商品選択・決済クリック時に、下の v12b パッチが該当商品のURLへ差し替えます。
+window.KATAPATA_CHECKOUT_URL = window.KATAPATA_CHECKOUT_URLS.tops;
+
 // Apps Script Webアプリの /exec URLを入れると、解除コードをスプレッドシート台帳で照合します。
 // 例: window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/**ここを変更**/exec";
 window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwr-FZdWAUA93Znch2-w-dPIDWqo6q_oaMnDS3MjB2ORNSlMyrGJ32NodDfSxGeU2SYQA/exec";
 
-// 解除コードそのものではなく、SHA-256ハッシュを入れてください。
 // Webアプリ照合版では、HTML内ハッシュは使いません。
 // 解除コードはスプレッドシート台帳 + Apps Script Webアプリで照合します。
 window.KATAPATA_UNLOCK_HASHES = window.KATAPATA_UNLOCK_HASHES || { tops: "", skirt: "", pants: "" };
@@ -1678,6 +1678,82 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   ensureStyle();
   window.katapataPurchaseScreenCleanV10Installed = true;
+})();
+</script>
+
+<script id="katapata-stripe-product-link-fix-v12b">
+/*
+ * KATAPATA v12b Stripe product link fix
+ * 既存の決済処理が window.KATAPATA_CHECKOUT_URL を文字列として読むため、
+ * 商品別URLオブジェクトが [object Object] として遷移してしまう問題を防ぎます。
+ */
+(function katapataInstallStripeProductLinkFixV12b(){
+  'use strict';
+  if (window.katapataStripeProductLinkFixV12bInstalled) return;
+  window.katapataStripeProductLinkFixV12bInstalled = true;
+
+  const URLS = window.KATAPATA_CHECKOUT_URLS || {
+    tops: 'https://buy.stripe.com/4gM28j5bY9oG6PE5RX2Ry00',
+    skirt: 'https://buy.stripe.com/5kQ7sDfQC58q1vka8d2Ry02',
+    pants: 'https://buy.stripe.com/6oU8wHgUGgR86PE9492Ry01'
+  };
+  window.KATAPATA_CHECKOUT_URLS = URLS;
+
+  function normalizeKey(value){
+    const raw = String(value == null ? '' : value).toLowerCase();
+    if (raw.includes('skirt') || raw.includes('スカート')) return 'skirt';
+    if (raw.includes('pants') || raw.includes('パンツ')) return 'pants';
+    if (raw.includes('bottom') || raw.includes('ボトム')) {
+      try {
+        const t = document.body ? document.body.innerText : '';
+        if (/パンツ/.test(t) && !/スカート/.test(t)) return 'pants';
+        if (/スカート/.test(t) && !/パンツ/.test(t)) return 'skirt';
+      } catch (_) {}
+    }
+    return 'tops';
+  }
+
+  function currentProductKey(){
+    try {
+      if (typeof window.katapataPaymentProductInfo === 'function') {
+        const p = window.katapataPaymentProductInfo(window.katapataPendingPaymentKind || '有料出力');
+        if (p && p.key) return normalizeKey(p.key);
+        if (p && p.name) return normalizeKey(p.name);
+        if (p && p.target) return normalizeKey(p.target);
+      }
+    } catch (_) {}
+    try { return normalizeKey(window.katapataPendingPaymentKind || ''); } catch (_) {}
+    return 'tops';
+  }
+
+  function applyCheckoutUrl(){
+    const key = currentProductKey();
+    const url = URLS[key] || URLS.tops || '';
+    if (url) window.KATAPATA_CHECKOUT_URL = url;
+    return url;
+  }
+
+  // 外からも確認できるようにしておく
+  window.katapataGetCurrentCheckoutUrl = applyCheckoutUrl;
+
+  function maybeApplyFromEvent(event){
+    const el = event && event.target && event.target.closest ? event.target.closest('button,a,[role="button"],input[type="button"],input[type="submit"]') : null;
+    if (!el) return;
+    const text = String((el.textContent || el.value || el.getAttribute('aria-label') || '')).replace(/\s+/g, ' ').trim();
+    // 決済へ進む直前に必ず文字列URLへ差し替える
+    if (/決済|支払|支払い|購入|checkout|payment|stripe/i.test(text)) {
+      applyCheckoutUrl();
+    }
+  }
+
+  document.addEventListener('pointerdown', maybeApplyFromEvent, true);
+  document.addEventListener('mousedown', maybeApplyFromEvent, true);
+  document.addEventListener('touchstart', maybeApplyFromEvent, true);
+  document.addEventListener('click', maybeApplyFromEvent, true);
+
+  // 商品選択ボタンを押した直後にも反映を試みる
+  document.addEventListener('click', function(){ setTimeout(applyCheckoutUrl, 0); }, true);
+  try { applyCheckoutUrl(); } catch (_) {}
 })();
 </script>
 </body></html>
