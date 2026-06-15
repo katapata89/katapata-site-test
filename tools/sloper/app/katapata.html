@@ -2739,4 +2739,169 @@ window.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 
+
+<script id="katapata-v18-persistent-pdf-panel">
+/*
+ * KATAPATA v18 persistent purchased-PDF panel
+ * A4分割PDFを開いたあとでも、元画面に購入済みPDF出力パネルを残し、通常PDFへ戻れるようにする。
+ */
+(function katapataInstallPersistentPdfPanelV18(){
+  'use strict';
+  const PANEL_ID = 'katapataPersistentPdfPanelV18';
+  const STYLE_ID = 'katapataPersistentPdfPanelStyleV18';
+  const SNAPSHOT_KEY = 'katapata_paid_print_snapshots_v2';
+  const PRODUCT_NAMES = {
+    tops: { ja: 'トップス', en: 'Tops' },
+    skirt: { ja: 'スカート', en: 'Skirt' },
+    pants: { ja: 'パンツ', en: 'Pants' }
+  };
+
+  function isEnglish(){
+    try {
+      const lang = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+      if (lang.startsWith('en')) return true;
+      if (window.KATAPATA_LANG === 'en') return true;
+      if (localStorage.getItem('katapata_lang') === 'en') return true;
+    } catch (_) {}
+    return false;
+  }
+  function t(ja, en){ return isEnglish() ? (en || ja) : ja; }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  }
+  function readJson(key, fallback){
+    try { return JSON.parse(localStorage.getItem(key) || '') || fallback; } catch (_) { return fallback; }
+  }
+  function readSnapshots(){ return readJson(SNAPSHOT_KEY, {}); }
+  function productLabel(key){
+    const p = PRODUCT_NAMES[key] || { ja: key, en: key };
+    return isEnglish() ? p.en : p.ja;
+  }
+  function snapshotKeys(){
+    const map = readSnapshots();
+    return ['tops','skirt','pants'].filter(k => map && map[k] && map[k].svgText);
+  }
+  function currentPreferredKey(keys){
+    try {
+      const pending = window.katapataPendingPaymentKind;
+      if (pending && keys.includes(pending)) return pending;
+    } catch (_) {}
+    try {
+      const active = document.querySelector('.purchaseTarget.active, .purchaseTarget.selected, .stage.active, [data-product].active, [data-product].selected');
+      const txt = active ? (active.textContent || '').toLowerCase() : '';
+      if (/skirt|スカート/.test(txt) && keys.includes('skirt')) return 'skirt';
+      if (/pants|パンツ/.test(txt) && keys.includes('pants')) return 'pants';
+      if (/tops|トップス|身頃|袖/.test(txt) && keys.includes('tops')) return 'tops';
+    } catch (_) {}
+    return keys[0] || 'tops';
+  }
+  function ensureStyle(){
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      #${PANEL_ID}{position:fixed;right:14px;bottom:14px;z-index:2147483000;width:min(360px,calc(100vw - 28px));box-sizing:border-box;background:#fffdf8;border:1px solid #eadcc8;border-radius:20px;box-shadow:0 18px 48px rgba(55,40,24,.22);padding:12px;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#171717}
+      #${PANEL_ID}.is-hidden{display:none}
+      #${PANEL_ID} .kp18-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+      #${PANEL_ID} .kp18-title{font-size:13px;font-weight:950;line-height:1.25}
+      #${PANEL_ID} .kp18-note{font-size:10px;line-height:1.45;color:#6f5e4c;font-weight:800;margin:3px 0 0}
+      #${PANEL_ID} .kp18-close{width:28px;height:28px;border-radius:999px;border:0;background:#8e7e68;color:#fff;font-weight:950;cursor:pointer;flex:0 0 auto;padding:0}
+      #${PANEL_ID} .kp18-row{display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px}
+      #${PANEL_ID} select{height:34px;border:1px solid #ddd4c7;border-radius:12px;background:#fff;padding:0 10px;font-size:12px;font-weight:900;color:#302b25}
+      #${PANEL_ID} .kp18-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+      #${PANEL_ID} button.kp18-print{min-height:38px;border:0;border-radius:13px;background:#171717;color:#fff;font-size:11px;font-weight:950;cursor:pointer;padding:8px 9px;line-height:1.25}
+      #${PANEL_ID} button.kp18-print.sub{background:#8e7e68}
+      #${PANEL_ID} .kp18-status{display:none;margin-top:8px;padding:7px 9px;border-radius:12px;background:#fff6e6;border:1px solid #efd29a;color:#6c4d17;font-size:10px;font-weight:850;line-height:1.35}
+      #${PANEL_ID} .kp18-status.show{display:block}
+      @media (max-width:560px){#${PANEL_ID}{right:10px;bottom:10px;width:calc(100vw - 20px);padding:10px;border-radius:18px}#${PANEL_ID} .kp18-actions{grid-template-columns:1fr}#${PANEL_ID} button.kp18-print{min-height:36px}}
+      @media print{#${PANEL_ID}{display:none!important}}
+    `;
+    document.head.appendChild(style);
+  }
+  function showStatus(msg){
+    const el = document.querySelector('#' + PANEL_ID + ' .kp18-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => { try { el.classList.remove('show'); } catch (_) {} }, 5000);
+  }
+  function createOrUpdatePanel(){
+    const keys = snapshotKeys();
+    let panel = document.getElementById(PANEL_ID);
+    if (!keys.length) {
+      if (panel) panel.classList.add('is-hidden');
+      return;
+    }
+    ensureStyle();
+    const preferred = currentPreferredKey(keys);
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = PANEL_ID;
+      document.body.appendChild(panel);
+      panel.addEventListener('click', function(e){
+        const close = e.target && e.target.closest ? e.target.closest('.kp18-close') : null;
+        if (close) {
+          e.preventDefault();
+          panel.classList.add('is-hidden');
+          sessionStorage.setItem('katapata_pdf_panel_v18_closed_once', '1');
+          return;
+        }
+        const btn = e.target && e.target.closest ? e.target.closest('[data-kp18-print]') : null;
+        if (!btn) return;
+        e.preventDefault();
+        const select = panel.querySelector('select[data-kp18-product]');
+        const kind = select ? select.value : (btn.getAttribute('data-kind') || preferred);
+        const mode = btn.getAttribute('data-kp18-print') || 'normal';
+        try {
+          if (typeof window.katapataOpenPurchasedSnapshotPrint === 'function') {
+            window.katapataOpenPurchasedSnapshotPrint(kind, mode);
+            showStatus(mode === 'tiled' ? t('A4分割PDFを開きました。このパネルから通常PDFも開けます。','A4 tiled PDF opened. You can still open the full-size PDF from this panel.') : t('通常PDFを開きました。このパネルからA4分割PDFも開けます。','Full-size PDF opened. You can still open the A4 tiled PDF from this panel.'));
+          } else {
+            showStatus(t('PDF出力機能を呼び出せませんでした。ページを再読み込みしてください。','Could not call the PDF export function. Please reload the page.'));
+          }
+        } catch (err) {
+          console.warn('KATAPATA v18 PDF open failed', err);
+          showStatus(t('PDF出力を開けませんでした。ポップアップブロックを確認してください。','Could not open PDF output. Please check popup blocking.'));
+        }
+      }, true);
+    }
+    const wasClosed = sessionStorage.getItem('katapata_pdf_panel_v18_closed_once') === '1';
+    // 新しくスナップショットが増えたときは再表示する
+    const lastKeys = panel.getAttribute('data-keys') || '';
+    const nextKeys = keys.join(',');
+    if (lastKeys !== nextKeys) sessionStorage.removeItem('katapata_pdf_panel_v18_closed_once');
+    panel.setAttribute('data-keys', nextKeys);
+    if (wasClosed && lastKeys === nextKeys) return;
+    panel.classList.remove('is-hidden');
+    const options = keys.map(k => `<option value="${esc(k)}" ${k===preferred?'selected':''}>${esc(productLabel(k))}</option>`).join('');
+    panel.innerHTML = `
+      <div class="kp18-head">
+        <div>
+          <div class="kp18-title">${esc(t('購入済みPDF出力', 'Purchased PDF output'))}</div>
+          <div class="kp18-note">${esc(t('A4分割PDFを開いた後も、このパネルから通常PDFへ戻れます。', 'After opening the A4 tiled PDF, you can return to the full-size PDF from this panel.'))}</div>
+        </div>
+        <button type="button" class="kp18-close" aria-label="close">×</button>
+      </div>
+      <div class="kp18-row">
+        ${keys.length > 1 ? `<select data-kp18-product>${options}</select>` : `<input type="hidden" data-kp18-product value="${esc(preferred)}"><div class="kp18-note"><strong>${esc(productLabel(preferred))}</strong></div>`}
+        <div class="kp18-actions">
+          <button type="button" class="kp18-print" data-kp18-print="normal">${esc(t('通常サイズPDF', 'Full-size PDF'))}</button>
+          <button type="button" class="kp18-print sub" data-kp18-print="tiled">${esc(t('A4分割印刷PDF', 'A4 tiled PDF'))}</button>
+        </div>
+        <div class="kp18-status"></div>
+      </div>
+    `;
+  }
+  function refreshSoon(){ setTimeout(createOrUpdatePanel, 80); setTimeout(createOrUpdatePanel, 500); }
+  window.katapataRefreshPurchasedPdfPanelV18 = createOrUpdatePanel;
+  document.addEventListener('visibilitychange', refreshSoon);
+  document.addEventListener('click', refreshSoon, true);
+  window.addEventListener('storage', refreshSoon);
+  const observer = new MutationObserver(refreshSoon);
+  try { observer.observe(document.documentElement, { childList:true, subtree:true, attributes:true, attributeFilter:['data-stage','class'] }); } catch (_) {}
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refreshSoon, { once:true });
+  else refreshSoon();
+})();
+</script>
+
 </body></html>
