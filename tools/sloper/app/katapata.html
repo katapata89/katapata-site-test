@@ -31,8 +31,8 @@ window.KATAPATA_CHECKOUT_URLS = window.KATAPATA_CHECKOUT_URLS || {
 window.KATAPATA_CHECKOUT_URL = window.KATAPATA_CHECKOUT_URL || "";
 
 // Apps Script Webアプリの /exec URLを入れると、解除コードをスプレッドシート台帳で照合します。
-// 例: window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/**ここを変更**/exec";
-window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwr-FZdWAUA93Znch2-w-dPIDWqo6q_oaMnDS3MjB2ORNSlMyrGJ32NodDfSxGeU2SYQA/exec";
+// 例: window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/xxxxxxxx/exec";
+window.KATAPATA_UNLOCK_WEB_APP_URL = window.KATAPATA_UNLOCK_WEB_APP_URL || "";
 
 // 解除コードそのものではなく、SHA-256ハッシュを入れてください。
 // Webアプリ照合版では、HTML内ハッシュは使いません。
@@ -49,6 +49,9 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 <script id="katapata-web-unlock-patch">
+
+window.KATAPATA_UNLOCK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwr-FZdWAUA93Znch2-w-dPIDWqo6q_oaMnDS3MjB2ORNSlMyrGJ32NodDfSxGeU2SYQA/exec";
+
 /*
  * KATAPATA Web unlock patch v0.3
  * Apps Script Webアプリで解除コードを照合する版。
@@ -1837,4 +1840,119 @@ window.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 
+
+<script id="katapata-v12e-unlock-to-output-fix">
+/*
+ * KATAPATA v12e unlock-to-output fix
+ * 解除コード照合が成功したあと、購入モーダル内で止まらず「出力」画面へ移動する保険処理。
+ */
+(function(){
+  'use strict';
+
+  function payText(ja, en){
+    try { if (typeof katapataPayText === 'function') return katapataPayText(ja, en); } catch (_) {}
+    return ja;
+  }
+
+  function currentKind(){
+    try { if (window.katapataPendingPaymentKind) return window.katapataPendingPaymentKind; } catch (_) {}
+    try { if (typeof katapataPendingPaymentKind !== 'undefined' && katapataPendingPaymentKind) return katapataPendingPaymentKind; } catch (_) {}
+    return '有料出力';
+  }
+
+  function productInfo(kind){
+    try { if (typeof katapataPaymentProductInfo === 'function') return katapataPaymentProductInfo(kind || currentKind()); } catch (_) {}
+    return { key: 'tops', name: 'トップス原型PDF' };
+  }
+
+  function isUnlocked(kind){
+    try { if (typeof katapataIsPaidUnlocked === 'function' && katapataIsPaidUnlocked(kind || currentKind())) return true; } catch (_) {}
+    try {
+      const product = productInfo(kind || currentKind());
+      const map = JSON.parse(localStorage.getItem('katapata_paid_unlocks_v1') || '{}');
+      return !!map[product.key];
+    } catch (_) {}
+    return false;
+  }
+
+  function closePaymentOverlay(){
+    try { if (typeof katapataClosePaymentConfirm === 'function') katapataClosePaymentConfirm(); } catch (_) {}
+    const overlay = document.getElementById('katapataPayOverlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function forceOutputStage(){
+    closePaymentOverlay();
+
+    // まず既存のステージボタンをクリックして、アプリ本来の遷移処理を使う。
+    let movedByButton = false;
+    try {
+      const btn = document.querySelector('.appStagebar .stage[data-stage="output"], .stage[data-stage="output"], [data-stage-button="output"]');
+      if (btn && typeof btn.click === 'function') {
+        btn.click();
+        movedByButton = true;
+      }
+    } catch (_) {}
+
+    setTimeout(function(){
+      const main = document.querySelector('.main');
+      const isOutput = main && main.getAttribute('data-stage') === 'output';
+
+      if (!isOutput) {
+        // ボタンクリックで遷移できなかった場合の保険。
+        try { if (typeof setStage === 'function') setStage('output'); } catch (_) {}
+        try { if (typeof showStage === 'function') showStage('output'); } catch (_) {}
+        try { currentStage = 'output'; } catch (_) {}
+        if (main) main.setAttribute('data-stage', 'output');
+        try {
+          document.querySelectorAll('.stage[data-stage]').forEach(function(el){
+            el.classList.toggle('active', el.getAttribute('data-stage') === 'output');
+          });
+        } catch (_) {}
+        try { if (typeof renderSideContent === 'function') renderSideContent(); } catch (_) {}
+        try { if (typeof render === 'function') render(); } catch (_) {}
+      }
+
+      try {
+        if (typeof setSaveMessage === 'function') {
+          setSaveMessage(
+            payText('解除しました。出力画面から通常PDF・A4分割PDFを出力できます。', 'Unlocked. You can export the full-size and A4 tiled PDFs from the Output screen.'),
+            'ok'
+          );
+        }
+      } catch (_) {}
+    }, movedByButton ? 180 : 80);
+  }
+
+  function install(){
+    const oldTry = window.katapataTryUnlockCode || (typeof katapataTryUnlockCode === 'function' ? katapataTryUnlockCode : null);
+    if (!oldTry || oldTry.__katapataV12eWrapped) return false;
+
+    const wrapped = async function katapataTryUnlockCodeV12e(){
+      const kind = currentKind();
+      let result;
+      try {
+        result = await oldTry.apply(this, arguments);
+      } finally {
+        setTimeout(function(){
+          if (isUnlocked(kind)) forceOutputStage();
+        }, 650);
+      }
+      return result;
+    };
+    wrapped.__katapataV12eWrapped = true;
+    window.katapataTryUnlockCode = wrapped;
+    try { katapataTryUnlockCode = wrapped; } catch (_) {}
+    return true;
+  }
+
+  if (!install()) {
+    window.addEventListener('DOMContentLoaded', function(){ setTimeout(install, 400); });
+    setTimeout(install, 1000);
+  }
+})();
+</script>
 </body></html>
