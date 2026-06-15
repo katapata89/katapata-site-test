@@ -758,6 +758,156 @@ window.addEventListener("DOMContentLoaded", () => {
   <div class="printNote">購入済み原型｜印刷後の寸法をご確認ください</div>
   <div class="noPrint"><button onclick="window.print()">PDF保存 / 印刷</button><button class="sub" onclick="window.close()">閉じる</button></div>
   <script>window.addEventListener('load',function(){function fit(){var p=document.querySelector('.printPage'); if(!p)return; var raw=p.offsetWidth || p.getBoundingClientRect().width; var scale=Math.min(1,Math.max(240,window.innerWidth-28)/raw); document.documentElement.style.setProperty('--screen-scale',String(scale)); p.style.marginBottom=Math.max(80,p.offsetHeight*scale+30)+'px';} window.addEventListener('resize',fit); fit(); if(!/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')){setTimeout(function(){window.print();},300);}});<\/script>
+
+
+<script id="katapata-stripe-product-link-fix-v12c">
+/*
+ * KATAPATA v12c Stripe product link fix
+ * 商品選択ボタンをクリックした時点で選択商品を記録し、決済直前に該当Stripeリンクへ差し替えます。
+ * v12bで全商品がtopsへ飛ぶ問題の修正。
+ */
+(function katapataInstallStripeProductLinkFixV12c(){
+  'use strict';
+  if (window.katapataStripeProductLinkFixV12cInstalled) return;
+  window.katapataStripeProductLinkFixV12cInstalled = true;
+
+  const URLS = window.KATAPATA_CHECKOUT_URLS || {
+    tops: 'https://buy.stripe.com/4gM28j5bY9oG6PE5RX2Ry00',
+    skirt: 'https://buy.stripe.com/5kQ7sDfQC58q1vka8d2Ry02',
+    pants: 'https://buy.stripe.com/6oU8wHgUGgR86PE9492Ry01'
+  };
+  window.KATAPATA_CHECKOUT_URLS = URLS;
+
+  let selectedKey = 'tops';
+
+  function textOf(el){
+    if (!el) return '';
+    return String(el.innerText || el.textContent || el.value || el.getAttribute && el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function normalizeKey(value){
+    const raw = String(value == null ? '' : value).toLowerCase();
+    if (/skirt|スカート/.test(raw)) return 'skirt';
+    if (/pants|パンツ/.test(raw)) return 'pants';
+    if (/tops|top|トップス|身頃|袖/.test(raw)) return 'tops';
+    return '';
+  }
+
+  function rememberProduct(key, reason){
+    key = normalizeKey(key) || key;
+    if (!URLS[key]) return selectedKey;
+    selectedKey = key;
+    window.katapataSelectedCheckoutProductKey = key;
+    window.KATAPATA_CHECKOUT_URL = URLS[key];
+    try { sessionStorage.setItem('katapata_selected_checkout_product_key', key); } catch (_) {}
+    try { window.katapataCheckoutProductDebug = { key, reason: reason || '', url: URLS[key], at: new Date().toISOString() }; } catch (_) {}
+    return key;
+  }
+
+  function findClickedProduct(target){
+    let el = target;
+    for (let i = 0; el && i < 5; i++, el = el.parentElement) {
+      const direct = normalizeKey([
+        textOf(el),
+        el.dataset && Object.values(el.dataset || {}).join(' '),
+        el.className || '',
+        el.id || ''
+      ].join(' '));
+      if (direct) return direct;
+    }
+    return '';
+  }
+
+  function scanSelectedProductFromDom(){
+    // 購入対象ボタン上の「選択中」表示や active/selected 状態から拾う。
+    const candidates = Array.from(document.querySelectorAll('button,[role="button"],a,.stage,[class*="select"],[class*="active"],[class*="paid"],[class*="purchase"]'));
+    for (const el of candidates) {
+      const t = textOf(el);
+      const key = normalizeKey(t);
+      if (!key) continue;
+      const cls = String(el.className || '').toLowerCase();
+      const pressed = String(el.getAttribute && (el.getAttribute('aria-pressed') || el.getAttribute('aria-selected')) || '').toLowerCase();
+      if (/選択中|active|selected|current/.test(t + ' ' + cls) || pressed === 'true') return key;
+    }
+    return '';
+  }
+
+  function currentProductKey(){
+    // 1. クリックで記録した商品を最優先
+    const remembered = normalizeKey(window.katapataSelectedCheckoutProductKey || selectedKey || '');
+    if (remembered && URLS[remembered]) return remembered;
+
+    // 2. sessionStorageに残っていれば使う
+    try {
+      const saved = normalizeKey(sessionStorage.getItem('katapata_selected_checkout_product_key') || '');
+      if (saved && URLS[saved]) return saved;
+    } catch (_) {}
+
+    // 3. DOMの選択中表示を読む
+    const domKey = scanSelectedProductFromDom();
+    if (domKey && URLS[domKey]) return domKey;
+
+    // 4. 既存関数から読み取る
+    try {
+      if (typeof window.katapataPaymentProductInfo === 'function') {
+        const p = window.katapataPaymentProductInfo(window.katapataPendingPaymentKind || '有料出力');
+        const k = normalizeKey([p && p.key, p && p.name, p && p.target].join(' '));
+        if (k && URLS[k]) return k;
+      }
+    } catch (_) {}
+
+    return 'tops';
+  }
+
+  function applyCheckoutUrl(reason){
+    const domKey = scanSelectedProductFromDom();
+    const key = domKey || currentProductKey();
+    rememberProduct(key, reason || 'apply');
+    return window.KATAPATA_CHECKOUT_URL;
+  }
+
+  window.katapataGetCurrentCheckoutUrl = applyCheckoutUrl;
+  window.katapataSetCheckoutProduct = function(key){ return rememberProduct(key, 'manual'); };
+
+  function handleAnyPointer(event){
+    const key = findClickedProduct(event && event.target);
+    if (key) rememberProduct(key, 'click-product');
+
+    const el = event && event.target && event.target.closest ? event.target.closest('button,a,[role="button"],input[type="button"],input[type="submit"]') : null;
+    const label = textOf(el);
+    if (/決済|支払|支払い|購入|checkout|payment|stripe/i.test(label)) {
+      applyCheckoutUrl('before-payment');
+    }
+  }
+
+  document.addEventListener('pointerdown', handleAnyPointer, true);
+  document.addEventListener('mousedown', handleAnyPointer, true);
+  document.addEventListener('touchstart', handleAnyPointer, true);
+  document.addEventListener('click', function(event){
+    handleAnyPointer(event);
+    setTimeout(function(){ applyCheckoutUrl('after-click'); }, 0);
+  }, true);
+
+  // window.openでトップスURLが渡ってきた場合も、直近の選択商品URLに差し替える保険。
+  const originalOpen = window.open;
+  if (typeof originalOpen === 'function' && !window.katapataStripeWindowOpenPatchedV12c) {
+    window.katapataStripeWindowOpenPatchedV12c = true;
+    window.open = function(url, target, features){
+      try {
+        const wanted = applyCheckoutUrl('window-open');
+        if (String(url) === String(URLS.tops) || String(url) === '[object Object]' || /buy\.stripe\.com/.test(String(url))) {
+          url = wanted || url;
+        }
+      } catch (_) {}
+      return originalOpen.call(this, url, target, features);
+    };
+  }
+
+  try { rememberProduct(sessionStorage.getItem('katapata_selected_checkout_product_key') || 'tops', 'init'); } catch (_) { rememberProduct('tops', 'init'); }
+  try { applyCheckoutUrl('init'); } catch (_) {}
+})();
+</script>
+
 </body></html>`);
     printWindow.document.close();
     try { setSaveMessage('購入済み原型の通常サイズPDF用画面を開きました。', 'ok'); } catch (_) {}
