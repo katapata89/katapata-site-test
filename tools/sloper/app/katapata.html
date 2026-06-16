@@ -3657,11 +3657,11 @@ window.KATAPATA_PATCH_VERSION = "fullset_1000_stripe_v25_no_template_injection";
 })();
 </script>
 
-<script id="katapata-v41-stripe-api-flow">
+<script id="katapata-v42-stripe-api-flow-return-restore">
 (function katapataInstallStripeApiFlowV41(){
   'use strict';
-  if (window.katapataStripeApiFlowV41Installed) return;
-  window.katapataStripeApiFlowV41Installed = true;
+  if (window.katapataStripeApiFlowV42Installed) return;
+  window.katapataStripeApiFlowV42Installed = true;
 
   var PENDING_KEY = 'katapata_fullset_pending_checkout_v41';
   var VERIFIED_KEY = 'katapata_fullset_verified_checkout_v41';
@@ -3723,6 +3723,47 @@ window.KATAPATA_PATCH_VERSION = "fullset_1000_stripe_v25_no_template_injection";
       console.warn('KATAPATA v41 applyStateObject failed', error);
       return false;
     }
+  }
+
+  function forceOutputStage(){
+    try { currentStage = 'output'; } catch (_) {}
+    try { currentAdjustPart = 'all'; } catch (_) {}
+    try { if (typeof window.render === 'function') window.render(); } catch (_) {}
+    try { if (typeof render === 'function') render(); } catch (_) {}
+    try {
+      var main = document.querySelector('.main');
+      if (main) main.setAttribute('data-stage', 'output');
+    } catch (_) {}
+    try {
+      document.querySelectorAll('.appStagebar .stage[data-stage], .stagebar .stage[data-stage], .stage[data-stage]').forEach(function(btn){
+        var isOutput = String(btn.getAttribute('data-stage') || '').toLowerCase() === 'output';
+        btn.classList.toggle('active', isOutput);
+        if (isOutput) {
+          btn.classList.remove('locked');
+          btn.classList.remove('prelocked');
+          try { btn.removeAttribute('disabled'); } catch (_) {}
+        }
+      });
+    } catch (_) {}
+  }
+  function clickOutputStageButtonSoon(){
+    [20, 120, 360].forEach(function(delay){
+      setTimeout(function(){
+        try {
+          var btn = document.querySelector('.appStagebar .stage[data-stage="output"], .stagebar .stage[data-stage="output"], .stage[data-stage="output"]');
+          if (btn && typeof btn.click === 'function') btn.click();
+        } catch (_) {}
+        try { forceOutputStage(); } catch (_) {}
+        try { renderBox(); } catch (_) {}
+      }, delay);
+    });
+  }
+  function restorePendingToOutput(pending){
+    if (!pending || !pending.state) return false;
+    var restored = applyState(pending.state);
+    try { forceOutputStage(); } catch (_) {}
+    clickOutputStageButtonSoon();
+    return restored;
   }
   function captureSnapshot(kind){
     try {
@@ -3857,7 +3898,8 @@ window.KATAPATA_PATCH_VERSION = "fullset_1000_stripe_v25_no_template_injection";
       setStatus(t('購入前データが見つかりません', 'Pre-purchase data not found'), t('同じブラウザで「この確定データを購入する」から進んだ場合のみ保存できます。', 'You can save purchased data only in the same browser used to start checkout.'), 'bad');
       return;
     }
-    setStatus(t('Stripe決済を確認しています', 'Verifying Stripe payment'), t('支払い完了情報をサーバーで確認しています。', 'Checking payment completion on the server.'), 'warn');
+    restorePendingToOutput(pending);
+    setStatus(t('購入時の確定データを復元しました', 'Pre-purchase data restored'), t('このまま決済確認を行います。出力画面で購入済みデータを保存できます。', 'Verifying payment now. You can save the purchased data on the output screen.'), 'warn');
     try {
       var res = await fetch(createApiUrl('/api/verify-checkout-session'), {
         method: 'POST',
@@ -3867,7 +3909,8 @@ window.KATAPATA_PATCH_VERSION = "fullset_1000_stripe_v25_no_template_injection";
       var data = await res.json().catch(function(){ return {}; });
       if (!res.ok || !data.verified) throw new Error(data.error || ('HTTP ' + res.status));
       writeJson(VERIFIED_KEY, Object.assign({}, data, { draftId: draftId, sessionId: sessionId, verifiedAt: now() }));
-      setStatus(t('購入を確認できました', 'Payment verified'), t('下のボタンから購入済みデータを保存できます。', 'Use the button below to save purchased data.'), 'ok');
+      restorePendingToOutput(pending);
+      setStatus(t('購入を確認できました', 'Payment verified'), t('出力画面に戻りました。下のボタンから購入済みデータを保存できます。', 'Returned to the output screen. Use the button below to save purchased data.'), 'ok');
       try {
         var cleanUrl = location.origin + location.pathname + location.hash;
         history.replaceState(null, '', cleanUrl);
@@ -3975,6 +4018,16 @@ window.KATAPATA_PATCH_VERSION = "fullset_1000_stripe_v25_no_template_injection";
   }, true);
 
   setTimeout(renderBox, 300);
+  setTimeout(function(){
+    try {
+      var params = new URLSearchParams(location.search || '');
+      if (params.get('katapata_checkout') === 'success') {
+        var draftId = params.get('draft_id') || '';
+        var pending = readJson(PENDING_KEY, null);
+        if (pending && pending.draftId === draftId) restorePendingToOutput(pending);
+      }
+    } catch (_) {}
+  }, 180);
   setTimeout(verifyCheckoutFromUrl, 500);
   window.katapataV41StartStripeCheckout = createCheckout;
   window.katapataV41VerifyCheckoutFromUrl = verifyCheckoutFromUrl;
