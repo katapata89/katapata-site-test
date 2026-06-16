@@ -1,28 +1,36 @@
-const Stripe = require('stripe');
-const crypto = require('crypto');
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+import Stripe from 'stripe';
+import crypto from 'crypto';
 
 function send(res, status, data) {
   res.status(status).json(data);
 }
 
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('STRIPE_SECRET_KEY is not set');
+  return new Stripe(key);
+}
+
 function makeToken(payload) {
   const secret = process.env.KATAPATA_PURCHASE_TOKEN_SECRET || process.env.STRIPE_SECRET_KEY;
+  if (!secret) throw new Error('KATAPATA_PURCHASE_TOKEN_SECRET is not set');
   return crypto
     .createHmac('sha256', secret)
     .update(JSON.stringify(payload))
     .digest('hex');
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return send(res, 405, { error: 'Method not allowed' });
   }
 
   try {
-    const { sessionId, draftId } = req.body || {};
+    const stripe = getStripe();
+    const body = req.body || {};
+    const { sessionId, draftId } = body;
+
     if (!sessionId || !draftId) {
       return send(res, 400, { error: 'Missing sessionId or draftId' });
     }
@@ -64,7 +72,7 @@ module.exports = async function handler(req, res) {
       purchaseToken: makeToken(tokenPayload)
     });
   } catch (error) {
-    console.error(error);
+    console.error('verify-checkout-session failed:', error);
     return send(res, 500, { error: 'Could not verify checkout session' });
   }
-};
+}
