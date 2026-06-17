@@ -2713,33 +2713,61 @@ window.addEventListener("DOMContentLoaded", () => {
     }
     return null;
   }
+  function captureAnySnapshotFromCurrentState(){
+    try {
+      if (typeof window.katapataV23CaptureAnySnapshot === 'function') {
+        const snap = window.katapataV23CaptureAnySnapshot();
+        if (snap && snap.svgText) return snap;
+      }
+    } catch (error) {
+      console.warn('KATAPATA v21 v23 snapshot rebuild failed', error);
+    }
+    return captureCurrentSnapshot();
+  }
+  function rebuildActiveSnapshot(){
+    if (!active || !active.data || !canBuildSnapshotFromPurchasedState(active.data)) return false;
+    applyImportedState(active.data);
+    let snap = captureAnySnapshotFromCurrentState();
+    if (!snap || !snap.svgText) return false;
+    active.snapshot = Object.assign({}, snap, {
+      productKey: PRODUCT_KEY,
+      productName: fullsetInfo().name,
+      loadedAt: active.loadedAt || new Date().toISOString(),
+      source: active.source || 'purchased_file_rebuilt'
+    });
+    active.hash = fnv1a(normalizeHashSource(active.snapshot));
+    active.dirty = false;
+    window.katapataActivePurchasedFullsetData = active;
+    storeActiveSnapshot();
+    refreshUi();
+    return true;
+  }
   function activatePurchasedData(data, source){
     let snap = findSnapshotInData(data);
     const hadEmbeddedSnapshot = !!snap;
     if (!snap && canBuildSnapshotFromPurchasedState(data)) {
       applyImportedState(data);
-      try {
-        if (typeof window.katapataV23CaptureAnySnapshot === 'function') snap = window.katapataV23CaptureAnySnapshot();
-      } catch (_) {}
-      if (!snap) snap = captureCurrentSnapshot();
+      snap = captureAnySnapshotFromCurrentState();
     }
-    if (!snap || !snap.svgText) return false;
-    const snapshot = Object.assign({}, snap, {
+    if ((!snap || !snap.svgText) && !canBuildSnapshotFromPurchasedState(data)) return false;
+    const snapshot = snap && snap.svgText ? Object.assign({}, snap, {
       productKey: PRODUCT_KEY,
       productName: fullsetInfo().name,
       loadedAt: new Date().toISOString(),
       source: source || 'purchased_file'
-    });
+    }) : null;
     active = {
       productKey: PRODUCT_KEY,
       snapshot,
+      data: data,
+      source: source || 'purchased_file',
       loadedAt: new Date().toISOString(),
-      hash: fnv1a(normalizeHashSource(snapshot)),
+      hash: fnv1a(normalizeHashSource(snapshot || data.state || data)),
       dirty: false
     };
     window.katapataActivePurchasedFullsetData = active;
     if (hadEmbeddedSnapshot && data && data.state) applyImportedState(data);
-    storeActiveSnapshot();
+    if (snapshot) storeActiveSnapshot();
     goOutput();
     setStatus(text(
       '<strong>購入済みフルセットデータを読み込みました</strong><small>このデータを変更しない間だけPDFをダウンロードできます。</small>',
@@ -2755,7 +2783,7 @@ window.addEventListener("DOMContentLoaded", () => {
     refreshUi();
   }
   function hasActiveCleanData(){
-    return !!(active && active.snapshot && active.snapshot.svgText && !active.dirty);
+    return !!(active && !active.dirty && ((active.snapshot && active.snapshot.svgText) || (active.data && canBuildSnapshotFromPurchasedState(active.data))));
   }
   function blockPdf(){
     setStatus(text(
@@ -2773,6 +2801,9 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   function openActiveSnapshot(mode){
     if (!hasActiveCleanData()) return blockPdf();
+    if (!active.snapshot || !active.snapshot.svgText) {
+      if (!rebuildActiveSnapshot()) return blockPdf();
+    }
     storeActiveSnapshot();
     try {
       window.katapataPendingPaymentKind = PRODUCT_KEY;
@@ -3068,7 +3099,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   function outputReady(){
     const data = activeData();
-    return !!(data && data.snapshot && data.snapshot.svgText && !data.dirty);
+    return !!(data && !data.dirty && ((data.snapshot && data.snapshot.svgText) || (data.data && data.data.purchaseIntent && data.data.state)));
   }
   function outputDirty(){
     const data = activeData();
@@ -3120,6 +3151,11 @@ window.addEventListener("DOMContentLoaded", () => {
     style.id = 'katapataOutputPageV22Style';
     style.textContent = `
       #katapataOutputPageV22{display:grid !important;gap:10px;align-content:start;}
+      #katapataOutputPageV22 .katapataV22Tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;border:1px solid #eadcc8;border-radius:14px;background:#fffaf2;}
+      #katapataOutputPageV22 .katapataV22Tabs button{min-height:34px;border-radius:11px;background:transparent;color:#5d5247;border:0;}
+      #katapataOutputPageV22 .katapataV22Tabs button[data-active="1"]{background:#171717;color:#fff;}
+      #katapataOutputPageV22 .katapataV22Pane{display:grid;gap:8px;}
+      #katapataOutputPageV22 .katapataV22Pane[hidden]{display:none !important;}
       #katapataOutputPageV22 .katapataOutputBlock{display:grid;gap:8px;padding:12px;border:1px solid #eadcc8;border-radius:14px;background:#fffdf8;color:#332d26;box-shadow:0 8px 18px rgba(80,58,34,.045);}
       #katapataOutputPageV22 h2{margin:0;font-size:14px;font-weight:950;line-height:1.25;}
       #katapataOutputPageV22 p{margin:0;font-size:11px;line-height:1.55;font-weight:780;color:#5c5043;}
@@ -3178,6 +3214,7 @@ window.addEventListener("DOMContentLoaded", () => {
   function loadPurchasedData(){
     try {
       if (typeof window.katapataLoadOutputCapableSavedData === 'function') {
+        try { window.katapataV22OutputTab = 'pdf'; } catch (_) {}
         window.katapataLoadOutputCapableSavedData();
         return;
       }
@@ -3286,43 +3323,80 @@ window.addEventListener("DOMContentLoaded", () => {
     }
     setMessage(t('<strong>縮小サンプルPDFの出力先が見つかりません</strong><small>既存のサンプル出力機能に接続できるよう、次に調整します。</small>', '<strong>Sample PDF output was not found</strong><small>This will be wired to the existing sample output next.</small>'), 'warn');
   }
+  function shouldShowSaveTab(){
+    try {
+      const params = new URLSearchParams(location.search || '');
+      if (params.get('katapata_checkout') === 'success' || params.get('katapata_checkout') === 'cancel') return true;
+    } catch (_) {}
+    try {
+      const pending = JSON.parse(localStorage.getItem('katapata_fullset_pending_checkout_v23') || 'null');
+      const verified = JSON.parse(localStorage.getItem('katapata_fullset_verified_checkout_v23') || 'null');
+      if (pending && verified && verified.verified === true && pending.draftId === verified.draftId) return true;
+    } catch (_) {}
+    return false;
+  }
+  function currentOutputTab(){
+    try {
+      if (window.katapataV22OutputTab === 'save') return 'save';
+      if (window.katapataV22OutputTab === 'pdf') return 'pdf';
+      if (shouldShowSaveTab()) return 'save';
+    } catch (_) {}
+    return 'pdf';
+  }
+  function setOutputTab(tab){
+    try { window.katapataV22OutputTab = tab === 'save' ? 'save' : 'pdf'; } catch (_) {}
+    render();
+    try {
+      if (typeof window.katapataV23RenderBox === 'function') window.katapataV23RenderBox();
+    } catch (_) {}
+  }
   function html(){
     const status = statusInfo();
     const canCheckout = checkoutEnabled();
+    const tab = currentOutputTab();
     return `
-      <section class="katapataOutputBlock" data-v22-block="owned">
-        <h2>${esc(t('PDF出力', 'PDF output'))}</h2>
-        <p class="katapataV22Lead">${esc(t('購入データを読み込むと、ここから通常サイズPDFとA4分割PDFを出力できます。', 'Load purchased data here to export full-size and A4 tiled PDFs.'))}</p>
-        <div class="katapataV22Status ${status.cls}">
-          <strong>${esc(status.title)}</strong>
-          <span>${esc(status.body)}</span>
-        </div>
-        <button type="button" data-v22-load="1">${esc(t('購入データを読み込む', 'Load purchased data'))}</button>
-        ${outputPartButtonsHtml()}
-        <div class="katapataV22ButtonGrid katapataV22PdfActions">
-          <button type="button" data-v22-pdf="normal">${esc(t('通常サイズPDF', 'Full-size PDF'))}</button>
-          <button type="button" class="sub" data-v22-pdf="tiled">${esc(t('A4分割PDF', 'A4 tiled PDF'))}</button>
-        </div>
-      </section>
-      <section class="katapataOutputBlock" data-v22-block="buy">
-        <h2>${esc(t('確定データ購入', 'Buy confirmed data'))}</h2>
-        <div class="katapataV22PriceRow">
-          <span class="katapataV22PriceBadge">${esc(t('1,000円', '1,000 JPY'))}</span>
-          <span class="katapataV22PriceSub">${esc(t('前後身頃・袖・スカート・パンツ込み', 'Back, front, sleeve, skirt, and pants included'))}</span>
-        </div>
-        <p class="katapataV22Lead">${esc(t('いま確定しているデータ一式を購入します。購入後は、その購入データを読み込むことでPDFを出力できます。', 'Purchase the currently confirmed data set. After purchase, load that purchased data to export PDFs.'))}</p>
-        <ul class="katapataV22NoteList">
-          <li>${esc(t('購入後に寸法や調整を変更したデータは別データになります。', 'Data changed after purchase becomes separate data.'))}</li>
-          <li>${esc(t('変更したデータを出力したい場合は、その確定データをあらためて購入してください。', 'To export changed data, purchase that confirmed data again.'))}</li>
-          <li>${esc(t('購入前に必ず各部位の調整を完了させてください。', 'Complete all part adjustments before purchase.'))}</li>
-        </ul>
-        <button type="button" data-v22-buy="1"${canCheckout ? '' : ' disabled'}>${esc(t('この確定データを購入する', 'Buy this confirmed data'))}</button>
-      </section>
-      <section class="katapataOutputBlock" data-v22-block="sample">
-        <h2>${esc(t('縮小サンプルPDF', 'Sample PDF'))}</h2>
-        <p>${esc(t('購入前の確認用です。実寸印刷ではありません。', 'For checking before purchase. This is not full-size printing.'))}</p>
-        <button type="button" data-v22-sample="1">${esc(t('縮小サンプルPDFを開く', 'Open sample PDF'))}</button>
-      </section>
+      <div class="katapataV22Tabs" role="tablist">
+        <button type="button" data-v22-tab="pdf" data-active="${tab === 'pdf' ? '1' : '0'}">${esc(t('PDF出力', 'PDF output'))}</button>
+        <button type="button" data-v22-tab="save" data-active="${tab === 'save' ? '1' : '0'}">${esc(t('データ保存', 'Data save'))}</button>
+      </div>
+      <div class="katapataV22Pane" data-v22-pane="pdf"${tab === 'pdf' ? '' : ' hidden'}>
+        <section class="katapataOutputBlock" data-v22-block="owned">
+          <h2>${esc(t('PDF出力', 'PDF output'))}</h2>
+          <p class="katapataV22Lead">${esc(t('購入データを読み込むと、ここから通常サイズPDFとA4分割PDFを出力できます。', 'Load purchased data here to export full-size and A4 tiled PDFs.'))}</p>
+          <div class="katapataV22Status ${status.cls}">
+            <strong>${esc(status.title)}</strong>
+            <span>${esc(status.body)}</span>
+          </div>
+          <button type="button" data-v22-load="1">${esc(t('購入データを読み込む', 'Load purchased data'))}</button>
+          ${outputPartButtonsHtml()}
+          <div class="katapataV22ButtonGrid katapataV22PdfActions">
+            <button type="button" data-v22-pdf="normal">${esc(t('通常サイズPDF', 'Full-size PDF'))}</button>
+            <button type="button" class="sub" data-v22-pdf="tiled">${esc(t('A4分割PDF', 'A4 tiled PDF'))}</button>
+          </div>
+        </section>
+        <section class="katapataOutputBlock" data-v22-block="sample">
+          <h2>${esc(t('縮小サンプルPDF', 'Sample PDF'))}</h2>
+          <p>${esc(t('購入前の確認用です。実寸印刷ではありません。', 'For checking before purchase. This is not full-size printing.'))}</p>
+          <button type="button" data-v22-sample="1">${esc(t('縮小サンプルPDFを開く', 'Open sample PDF'))}</button>
+        </section>
+      </div>
+      <div class="katapataV22Pane" data-v22-pane="save"${tab === 'save' ? '' : ' hidden'}>
+        <section class="katapataOutputBlock" data-v22-block="buy">
+          <h2>${esc(t('確定データ購入', 'Buy confirmed data'))}</h2>
+          <div class="katapataV22PriceRow">
+            <span class="katapataV22PriceBadge">${esc(t('1,000円', '1,000 JPY'))}</span>
+            <span class="katapataV22PriceSub">${esc(t('前後身頃・袖・スカート・パンツ込み', 'Back, front, sleeve, skirt, and pants included'))}</span>
+          </div>
+          <p class="katapataV22Lead">${esc(t('いま確定しているデータ一式を購入します。購入後は、その購入データを読み込むことでPDFを出力できます。', 'Purchase the currently confirmed data set. After purchase, load that purchased data to export PDFs.'))}</p>
+          <ul class="katapataV22NoteList">
+            <li>${esc(t('購入後に寸法や調整を変更したデータは別データになります。', 'Data changed after purchase becomes separate data.'))}</li>
+            <li>${esc(t('変更したデータを出力したい場合は、その確定データをあらためて購入してください。', 'To export changed data, purchase that confirmed data again.'))}</li>
+            <li>${esc(t('購入前に必ず各部位の調整を完了させてください。', 'Complete all part adjustments before purchase.'))}</li>
+          </ul>
+          <button type="button" data-v22-buy="1"${canCheckout ? '' : ' disabled'}>${esc(t('この確定データを購入する', 'Buy this confirmed data'))}</button>
+        </section>
+        <div id="katapataV22SaveFlowSlot"></div>
+      </div>
     `;
   }
   function render(){
@@ -3338,6 +3412,7 @@ window.addEventListener("DOMContentLoaded", () => {
     root.innerHTML = html();
     hideLegacyOutputBlocks(side, root);
   }
+  window.katapataV22RenderOutputPage = render;
   function hideLegacyOutputBlocks(side, root){
     try {
       Array.from(side.children || []).forEach(function(el){
@@ -3363,12 +3438,13 @@ window.addEventListener("DOMContentLoaded", () => {
     } catch (_) {}
   }
   document.addEventListener('click', function(event){
-    const btn = event.target && event.target.closest ? event.target.closest('[data-v22-sample], [data-v22-buy], [data-v22-load], [data-v22-pdf], [data-v22-part]') : null;
+    const btn = event.target && event.target.closest ? event.target.closest('[data-v22-tab], [data-v22-sample], [data-v22-buy], [data-v22-load], [data-v22-pdf], [data-v22-part]') : null;
     if (!btn) return;
     event.preventDefault();
     event.stopPropagation();
     if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-    if (btn.hasAttribute('data-v22-sample')) openSamplePdf();
+    if (btn.hasAttribute('data-v22-tab')) setOutputTab(btn.getAttribute('data-v22-tab') || 'pdf');
+    else if (btn.hasAttribute('data-v22-sample')) openSamplePdf();
     else if (btn.hasAttribute('data-v22-buy')) openCheckout();
     else if (btn.hasAttribute('data-v22-load')) loadPurchasedData();
     else if (btn.hasAttribute('data-v22-pdf')) openPaidPdf(btn.getAttribute('data-v22-pdf') || 'normal');
@@ -3621,6 +3697,12 @@ window.addEventListener("DOMContentLoaded", () => {
     } catch (_) {}
     return canSave();
   }
+  function isCheckoutReturn(){
+    try {
+      var params = new URLSearchParams(location.search || '');
+      return params.get('katapata_checkout') === 'success' || params.get('katapata_checkout') === 'cancel';
+    } catch (_) { return false; }
+  }
   function boxHtml(){
     return '<section id="katapataStripeApiFlowV23" class="' + (needsPaymentAttention() ? 'is-attention' : '') + '">' +
       '<h2>' + esc(t('支払い完了後のデータ保存', 'After payment')) + '</h2>' +
@@ -3635,13 +3717,19 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   function renderBox(){
     if (!isOutputStage()) return;
+    try {
+      if (isCheckoutReturn() || (!window.katapataV22OutputTab && needsPaymentAttention())) window.katapataV22OutputTab = 'save';
+      if (typeof window.katapataV22RenderOutputPage === 'function') window.katapataV22RenderOutputPage();
+    } catch (_) {}
     ensureStyle();
     var side = document.getElementById('sideContent') || document.querySelector('.side') || document.body;
     if (!side) return;
     var outputRoot = document.getElementById('katapataOutputPageV22');
+    var slot = document.getElementById('katapataV22SaveFlowSlot');
     var box = document.getElementById('katapataStripeApiFlowV23');
     if (!box) {
-      if (outputRoot && outputRoot.parentNode === side && needsPaymentAttention()) outputRoot.insertAdjacentHTML('beforebegin', boxHtml());
+      if (slot) slot.innerHTML = boxHtml();
+      else if (outputRoot && outputRoot.parentNode === side && needsPaymentAttention()) outputRoot.insertAdjacentHTML('beforebegin', boxHtml());
       else if (outputRoot && outputRoot.parentNode === side) outputRoot.insertAdjacentHTML('afterend', boxHtml());
       else side.insertAdjacentHTML('afterbegin', boxHtml());
     } else {
@@ -3650,6 +3738,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   function focusPaymentBox(){
     try {
+      window.katapataV22OutputTab = 'save';
       renderBox();
       var box = document.getElementById('katapataStripeApiFlowV23');
       if (!box) return;
@@ -3877,6 +3966,7 @@ window.addEventListener("DOMContentLoaded", () => {
   window.katapataV23StartStripeCheckout = startCheckout;
   window.katapataV23VerifyCheckoutFromUrl = verifyFromUrl;
   window.katapataV23CaptureAnySnapshot = captureAnySnapshot;
+  window.katapataV23RenderBox = renderBox;
 })();
 </script>
 <script id="katapata-v31-measure-two-torsos">
