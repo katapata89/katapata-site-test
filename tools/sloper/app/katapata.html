@@ -3132,6 +3132,16 @@ window.addEventListener("DOMContentLoaded", () => {
       #katapataOutputPageV22 .katapataV22Status.ok{background:#eef8ed;border-color:#b8dfb5;color:#275d2d;}
       #katapataOutputPageV22 .katapataV22Status.warn{background:#fff6e3;border-color:#f0d18c;color:#7a5517;}
       #katapataOutputPageV22 .katapataV22Status.empty{background:#f8f5ef;border-color:#e7dccd;color:#6b5b49;}
+      #katapataOutputPageV22 .katapataV22Lead{margin:0;font-size:11px;line-height:1.5;font-weight:820;color:#5c5043;}
+      #katapataOutputPageV22 .katapataV22PdfActions button{min-height:40px;}
+      #katapataOutputPageV22 .katapataV22PriceRow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+      #katapataOutputPageV22 .katapataV22PriceBadge{display:inline-grid;place-items:center;padding:5px 12px;border-radius:999px;background:#171717;color:#fff;font-size:14px;font-weight:950;}
+      #katapataOutputPageV22 .katapataV22PriceSub{display:inline-grid;place-items:center;padding:5px 9px;border-radius:999px;background:#fffaf2;border:1px solid #eadcc8;color:#6b5b49;font-size:9.5px;font-weight:900;}
+      #katapataOutputPageV22 .katapataV22NoteList{display:grid;gap:4px;margin:0;padding:0;list-style:none;}
+      #katapataOutputPageV22 .katapataV22NoteList li{position:relative;margin:0;padding-left:14px;font-size:10px;line-height:1.35;font-weight:820;color:#6b5b49;}
+      #katapataOutputPageV22 .katapataV22NoteList li:before{content:"";position:absolute;left:2px;top:.62em;width:5px;height:5px;border-radius:50%;background:#d79645;}
+      #katapataOutputPageV22 .katapataV22MiniNote{margin:0;font-size:9.5px;line-height:1.35;font-weight:800;color:#8a7359;}
+      #katapataOutputPageV22 [data-v22-block="buy"]{background:linear-gradient(180deg,#fff8ee,#f7efe2);}
       .main[data-stage="output"] #katapataV19OutputUnlockPanel,
       .main[data-stage="output"] #katapataV21FileOnlyPanel,
       .main[data-stage="output"] .purchaseTarget,
@@ -3180,10 +3190,13 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   function normalizeOutputPart(part){
     const raw = String(part || '').toLowerCase();
+    if (raw === 'front') return 'front';
+    if (raw === 'back') return 'back';
+    if (raw === 'all') return 'front';
     if (raw === 'sleeve') return 'sleeve';
     if (raw === 'skirt') return 'skirt';
     if (raw === 'pants') return 'pants';
-    return 'all';
+    return 'front';
   }
   function currentOutputPart(){
     try {
@@ -3191,11 +3204,10 @@ window.addEventListener("DOMContentLoaded", () => {
     } catch (_) {}
     try {
       if (typeof confirmPreviewPart !== 'undefined') {
-        const part = normalizeOutputPart(confirmPreviewPart);
-        if (part !== 'all') return part;
+        return normalizeOutputPart(confirmPreviewPart);
       }
     } catch (_) {}
-    return 'all';
+    return 'front';
   }
   function refreshActiveSnapshotForPart(){
     const data = activeData();
@@ -3229,12 +3241,12 @@ window.addEventListener("DOMContentLoaded", () => {
         if (lowerPatternState) lowerPatternState.viewMode = next;
         if (typeof confirmPreviewPart !== 'undefined') confirmPreviewPart = next;
       } else {
-        if (typeof confirmPreviewPart !== 'undefined') confirmPreviewPart = next === 'sleeve' ? 'sleeve' : 'all';
-        if (typeof currentAdjustPart !== 'undefined') currentAdjustPart = next === 'sleeve' ? 'sleeve' : 'all';
+        if (typeof confirmPreviewPart !== 'undefined') confirmPreviewPart = next;
+        if (typeof currentAdjustPart !== 'undefined') currentAdjustPart = next;
       }
     } catch (_) {}
     try {
-      if (typeof window.setConfirmPreviewPart === 'function') window.setConfirmPreviewPart(next === 'all' ? 'all' : next);
+      if (typeof window.setConfirmPreviewPart === 'function') window.setConfirmPreviewPart(next);
     } catch (_) {}
     try { if (typeof window.render === 'function') window.render(); } catch (_) {}
     refreshActiveSnapshotForPart();
@@ -3243,7 +3255,8 @@ window.addEventListener("DOMContentLoaded", () => {
   function outputPartButtonsHtml(){
     const selected = currentOutputPart();
     const parts = [
-      { key: 'all', label: t('前後', 'Front/back') },
+      { key: 'back', label: t('後ろ身頃', 'Back') },
+      { key: 'front', label: t('前身頃', 'Front') },
       { key: 'sleeve', label: t('袖', 'Sleeve') },
       { key: 'skirt', label: t('スカート', 'Skirt') },
       { key: 'pants', label: t('パンツ', 'Pants') }
@@ -3274,28 +3287,38 @@ window.addEventListener("DOMContentLoaded", () => {
     const status = statusInfo();
     const canCheckout = checkoutEnabled();
     return `
-      <section class="katapataOutputBlock" data-v22-block="sample">
-        <h2>${esc(t('縮小サンプルPDF', 'Sample PDF'))}</h2>
-        <p>${esc(t('購入前の確認用です。実寸印刷ではありません。', 'For checking before purchase. This is not full-size printing.'))}</p>
-        <button type="button" data-v22-sample="1">${esc(t('縮小サンプルPDFを開く', 'Open sample PDF'))}</button>
-      </section>
-      <section class="katapataOutputBlock" data-v22-block="buy">
-        <h2>${esc(t('確定データを購入する', 'Buy confirmed data'))}</h2>
-        <p>${esc(t('1,000円。いま確定したデータを購入します。購入後に調整したデータは別データになるためPDF出力できません。購入前に必ず前後・袖・スカート・パンツの調整を完了してください。', '1,000 JPY. You are purchasing the currently confirmed data. Data adjusted after purchase becomes separate data and cannot be exported as a PDF. Complete the front/back, sleeve, skirt, and pants adjustments before buying.'))}</p>
-        <button type="button" data-v22-buy="1"${canCheckout ? '' : ' disabled'}>${esc(t('確定データを購入する', 'Buy confirmed data'))}</button>
-      </section>
       <section class="katapataOutputBlock" data-v22-block="owned">
-        <h2>${esc(t('購入データをお持ちの方', 'Already have purchased data?'))}</h2>
+        <h2>${esc(t('PDF出力', 'PDF output'))}</h2>
+        <p class="katapataV22Lead">${esc(t('購入データを読み込むと、ここから通常サイズPDFとA4分割PDFを出力できます。', 'Load purchased data here to export full-size and A4 tiled PDFs.'))}</p>
         <div class="katapataV22Status ${status.cls}">
           <strong>${esc(status.title)}</strong>
           <span>${esc(status.body)}</span>
         </div>
         <button type="button" data-v22-load="1">${esc(t('購入データを読み込む', 'Load purchased data'))}</button>
         ${outputPartButtonsHtml()}
-        <div class="katapataV22ButtonGrid">
+        <div class="katapataV22ButtonGrid katapataV22PdfActions">
           <button type="button" data-v22-pdf="normal">${esc(t('通常サイズPDF', 'Full-size PDF'))}</button>
           <button type="button" class="sub" data-v22-pdf="tiled">${esc(t('A4分割PDF', 'A4 tiled PDF'))}</button>
         </div>
+      </section>
+      <section class="katapataOutputBlock" data-v22-block="buy">
+        <h2>${esc(t('確定データ購入', 'Buy confirmed data'))}</h2>
+        <div class="katapataV22PriceRow">
+          <span class="katapataV22PriceBadge">${esc(t('1,000円', '1,000 JPY'))}</span>
+          <span class="katapataV22PriceSub">${esc(t('前後身頃・袖・スカート・パンツ込み', 'Back, front, sleeve, skirt, and pants included'))}</span>
+        </div>
+        <p class="katapataV22Lead">${esc(t('いま確定しているデータ一式を購入します。購入後は、その購入データを読み込むことでPDFを出力できます。', 'Purchase the currently confirmed data set. After purchase, load that purchased data to export PDFs.'))}</p>
+        <ul class="katapataV22NoteList">
+          <li>${esc(t('購入後に寸法や調整を変更したデータは別データになります。', 'Data changed after purchase becomes separate data.'))}</li>
+          <li>${esc(t('変更したデータを出力したい場合は、その確定データをあらためて購入してください。', 'To export changed data, purchase that confirmed data again.'))}</li>
+          <li>${esc(t('購入前に必ず各部位の調整を完了させてください。', 'Complete all part adjustments before purchase.'))}</li>
+        </ul>
+        <button type="button" data-v22-buy="1"${canCheckout ? '' : ' disabled'}>${esc(t('この確定データを購入する', 'Buy this confirmed data'))}</button>
+      </section>
+      <section class="katapataOutputBlock" data-v22-block="sample">
+        <h2>${esc(t('縮小サンプルPDF', 'Sample PDF'))}</h2>
+        <p>${esc(t('購入前の確認用です。実寸印刷ではありません。', 'For checking before purchase. This is not full-size printing.'))}</p>
+        <button type="button" data-v22-sample="1">${esc(t('縮小サンプルPDFを開く', 'Open sample PDF'))}</button>
       </section>
     `;
   }
@@ -3767,6 +3790,187 @@ window.addEventListener("DOMContentLoaded", () => {
 
   window.katapataV23StartStripeCheckout = startCheckout;
   window.katapataV23VerifyCheckoutFromUrl = verifyFromUrl;
+})();
+</script>
+<script id="katapata-v31-measure-two-torsos">
+(function katapataInstallMeasureTwoTorsosV31(){
+  'use strict';
+  if (window.katapataMeasureTwoTorsosV31Installed) return;
+  window.katapataMeasureTwoTorsosV31Installed = true;
+  function apply(){
+    if (document.getElementById('katapataMeasureTwoTorsosV31Style')) return;
+    var style = document.createElement('style');
+    style.id = 'katapataMeasureTwoTorsosV31Style';
+    style.textContent = `
+      .main[data-stage="measure"] .measureHero{width:min(100%,760px) !important;justify-self:center !important;}
+      .main[data-stage="measure"] .measureFigureGrid{display:grid !important;grid-template-columns:repeat(2,minmax(170px,1fr)) !important;justify-items:center !important;align-items:end !important;gap:8px !important;}
+      .main[data-stage="measure"] .measureFigure.frontFigure,
+      .main[data-stage="measure"] .measureFigure.sideFigure{display:grid !important;justify-items:center !important;align-content:end !important;visibility:visible !important;opacity:1 !important;}
+      .main[data-stage="measure"] .torsoWrap.front{display:block !important;width:214px !important;height:404px !important;aspect-ratio:594 / 1122 !important;}
+      .main[data-stage="measure"] .torsoWrap.side{display:block !important;width:120px !important;height:404px !important;aspect-ratio:334 / 1118 !important;}
+      .main[data-stage="measure"] .torsoWrap.front img,
+      .main[data-stage="measure"] .torsoWrap.front .guideSvg,
+      .main[data-stage="measure"] .torsoWrap.side img,
+      .main[data-stage="measure"] .torsoWrap.side .guideSvg{display:block !important;opacity:1 !important;visibility:visible !important;}
+      @media (max-width:900px){
+        .main[data-stage="measure"] .measureHero{width:min(100%,680px) !important;}
+        .main[data-stage="measure"] .measureFigureGrid{grid-template-columns:repeat(2,minmax(140px,1fr)) !important;}
+        .main[data-stage="measure"] .torsoWrap.front{width:188px !important;height:355px !important;}
+        .main[data-stage="measure"] .torsoWrap.side{width:106px !important;height:355px !important;}
+      }
+      @media (max-width:560px){
+        .main[data-stage="measure"] .measureFigureGrid{grid-template-columns:repeat(2,minmax(120px,1fr)) !important;gap:5px !important;}
+        .main[data-stage="measure"] .torsoWrap.front{width:172px !important;height:325px !important;}
+        .main[data-stage="measure"] .torsoWrap.side{width:97px !important;height:325px !important;}
+      }
+      @media (max-height:430px) and (orientation:landscape){
+        .main[data-stage="measure"] .torsoWrap.front{width:166px !important;height:314px !important;}
+        .main[data-stage="measure"] .torsoWrap.side{width:94px !important;height:314px !important;}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once:true });
+  else apply();
+})();
+</script>
+<script id="katapata-v31-output-first-compact-style">
+(function katapataInstallOutputFirstCompactStyleV31(){
+  'use strict';
+  if (window.katapataOutputFirstCompactStyleV31Installed) return;
+  window.katapataOutputFirstCompactStyleV31Installed = true;
+  function apply(){
+    if (document.getElementById('katapataOutputFirstCompactStyleV31Style')) return;
+    var style = document.createElement('style');
+    style.id = 'katapataOutputFirstCompactStyleV31Style';
+    style.textContent = `
+      .main[data-stage="output"] .side{gap:8px !important;align-content:start !important;}
+      #katapataOutputPageV22{gap:8px !important;}
+      #katapataOutputPageV22 .katapataOutputBlock{gap:7px !important;padding:10px 11px !important;border-radius:14px !important;}
+      #katapataOutputPageV22 h2{font-size:13px !important;line-height:1.18 !important;}
+      #katapataOutputPageV22 p,
+      #katapataOutputPageV22 .katapataV22Lead{font-size:10px !important;line-height:1.4 !important;}
+      #katapataOutputPageV22 .katapataV22Status{padding:7px 9px !important;border-radius:11px !important;font-size:9.5px !important;line-height:1.3 !important;}
+      #katapataOutputPageV22 .katapataV22Status strong{font-size:10.5px !important;}
+      #katapataOutputPageV22 button{min-height:34px !important;border-radius:12px !important;font-size:11px !important;padding:0 9px !important;}
+      #katapataOutputPageV22 .katapataV22PartBox{gap:5px !important;padding:7px !important;border-radius:11px !important;}
+      #katapataOutputPageV22 .katapataV22PartLabel{font-size:9.5px !important;line-height:1.2 !important;}
+      #katapataOutputPageV22 .katapataV22PartGrid{gap:5px !important;}
+      #katapataOutputPageV22 .katapataV22PartGrid button{min-height:30px !important;font-size:9.5px !important;border-radius:10px !important;}
+      #katapataOutputPageV22 .katapataV22ButtonGrid{gap:6px !important;}
+      #katapataOutputPageV22 .katapataV22PdfActions button{min-height:38px !important;font-size:11.5px !important;}
+      #katapataOutputPageV22 .katapataV22PriceRow{gap:5px !important;}
+      #katapataOutputPageV22 .katapataV22PriceBadge{padding:4px 10px !important;font-size:12.5px !important;}
+      #katapataOutputPageV22 .katapataV22PriceSub{padding:4px 8px !important;font-size:8.8px !important;}
+      #katapataOutputPageV22 .katapataV22NoteList{gap:3px !important;}
+      #katapataOutputPageV22 .katapataV22NoteList li{font-size:9.2px !important;line-height:1.28 !important;padding-left:12px !important;}
+      #katapataOutputPageV22 .katapataV22MiniNote{display:none !important;}
+      @media(max-width:560px){
+        #katapataOutputPageV22 .katapataOutputBlock{padding:9px 10px !important;}
+        #katapataOutputPageV22 .katapataV22PartGrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once:true });
+  else apply();
+})();
+</script>
+<script id="katapata-v37-output-targets-cleanup">
+(function katapataInstallOutputTargetsCleanupV37(){
+  'use strict';
+  if (window.katapataOutputTargetsCleanupV37Installed) return;
+  window.katapataOutputTargetsCleanupV37Installed = true;
+
+  function stage(){
+    try {
+      var main = document.querySelector('.main');
+      return main ? String(main.getAttribute('data-stage') || '').toLowerCase() : '';
+    } catch (_) { return ''; }
+  }
+
+  function ensureStyle(){
+    if (document.getElementById('katapataV37OutputTargetsCleanupStyle')) return;
+    var style = document.createElement('style');
+    style.id = 'katapataV37OutputTargetsCleanupStyle';
+    style.textContent = `
+      .main[data-stage="measure"] .side,
+      .main[data-stage="adjust"] .side,
+      .main[data-stage="dart"] .side,
+      .main[data-stage="confirm"] .side,
+      .main[data-stage="output"] .side{align-content:start !important;align-self:start !important;justify-content:stretch !important;}
+      .main[data-stage="measure"] #sideContent{align-self:start !important;margin-top:0 !important;padding-top:0 !important;}
+      .main[data-stage="measure"] #sideContent > *:first-child{margin-top:0 !important;}
+      .main:not([data-stage="output"]) #katapataOutputPageV22,
+      .main:not([data-stage="output"]) #katapataStripeApiFlowV23,
+      .main:not([data-stage="output"]) #katapataV21FileOnlyPanel{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;height:0 !important;min-height:0 !important;margin:0 !important;padding:0 !important;border:0 !important;overflow:hidden !important;}
+      .measureFigureGrid #katapataOutputPageV22,
+      .measureFigureGrid #katapataStripeApiFlowV23,
+      .measureFigureGrid #katapataV21FileOnlyPanel,
+      .measureFigure #katapataOutputPageV22,
+      .measureFigure #katapataStripeApiFlowV23,
+      .measureFigure #katapataV21FileOnlyPanel,
+      .torsoWrap #katapataOutputPageV22,
+      .torsoWrap #katapataStripeApiFlowV23,
+      .torsoWrap #katapataV21FileOnlyPanel{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;}
+      #katapataOutputPageV22 .katapataV22PartGrid{grid-template-columns:repeat(5,minmax(0,1fr)) !important;}
+      #katapataOutputPageV22 .katapataV22PartGrid button{font-size:9.2px !important;line-height:1.15 !important;white-space:normal !important;}
+      @media(max-width:560px){#katapataOutputPageV22 .katapataV22PartGrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function removeOutputUiOutsideOutput(){
+    if (stage() === 'output') return;
+    try {
+      var root = document.getElementById('katapataOutputPageV22');
+      if (root) root.remove();
+    } catch (_) {}
+    try {
+      var api = document.getElementById('katapataStripeApiFlowV23');
+      if (api) api.remove();
+    } catch (_) {}
+    try {
+      var old = document.getElementById('katapataV21FileOnlyPanel');
+      if (old) old.remove();
+    } catch (_) {}
+  }
+
+  function removeOutputUiFromTorso(){
+    try {
+      document.querySelectorAll('.measureFigureGrid #katapataOutputPageV22, .measureFigureGrid #katapataStripeApiFlowV23, .measureFigureGrid #katapataV21FileOnlyPanel, .measureFigure #katapataOutputPageV22, .measureFigure #katapataStripeApiFlowV23, .measureFigure #katapataV21FileOnlyPanel, .torsoWrap #katapataOutputPageV22, .torsoWrap #katapataStripeApiFlowV23, .torsoWrap #katapataV21FileOnlyPanel').forEach(function(el){
+        el.remove();
+      });
+    } catch (_) {}
+  }
+
+  function setInitialOutputPart(){
+    try {
+      if (!window.katapataV22OutputPart || window.katapataV22OutputPart === 'all') window.katapataV22OutputPart = 'front';
+    } catch (_) {}
+  }
+
+  function tick(){
+    ensureStyle();
+    removeOutputUiFromTorso();
+    removeOutputUiOutsideOutput();
+    setInitialOutputPart();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tick, { once:true });
+  else tick();
+
+  ['click','pointerup','input','change','keyup'].forEach(function(type){
+    document.addEventListener(type, function(){
+      setTimeout(tick, 10);
+      setTimeout(tick, 80);
+      setTimeout(tick, 240);
+    }, true);
+  });
+  setTimeout(tick, 80);
+  setTimeout(tick, 450);
+  setTimeout(tick, 1200);
+  setInterval(tick, 1000);
 })();
 </script>
 </body></html>
