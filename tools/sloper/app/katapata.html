@@ -2718,7 +2718,10 @@ window.addEventListener("DOMContentLoaded", () => {
     const hadEmbeddedSnapshot = !!snap;
     if (!snap && canBuildSnapshotFromPurchasedState(data)) {
       applyImportedState(data);
-      snap = captureCurrentSnapshot();
+      try {
+        if (typeof window.katapataV23CaptureAnySnapshot === 'function') snap = window.katapataV23CaptureAnySnapshot();
+      } catch (_) {}
+      if (!snap) snap = captureCurrentSnapshot();
     }
     if (!snap || !snap.svgText) return false;
     const snapshot = Object.assign({}, snap, {
@@ -3496,6 +3499,48 @@ window.addEventListener("DOMContentLoaded", () => {
     }
     return null;
   }
+  function captureSnapshotForPart(part){
+    var previous = {};
+    try {
+      previous.currentStage = typeof currentStage !== 'undefined' ? currentStage : null;
+      previous.currentAdjustPart = typeof currentAdjustPart !== 'undefined' ? currentAdjustPart : null;
+      previous.confirmPreviewPart = typeof confirmPreviewPart !== 'undefined' ? confirmPreviewPart : null;
+      previous.lowerViewMode = lowerPatternState && lowerPatternState.viewMode;
+      var target = String(part || 'front');
+      if (target === 'skirt' || target === 'pants') {
+        if (lowerPatternState) lowerPatternState.viewMode = target;
+        if (typeof confirmPreviewPart !== 'undefined') confirmPreviewPart = target;
+        if (typeof currentStage !== 'undefined') currentStage = 'output';
+      } else {
+        if (typeof confirmPreviewPart !== 'undefined') confirmPreviewPart = target === 'all' ? 'front' : target;
+        if (typeof currentAdjustPart !== 'undefined') currentAdjustPart = target === 'sleeve' ? 'sleeve' : (target === 'back' ? 'back' : 'front');
+        if (typeof currentStage !== 'undefined') currentStage = 'confirm';
+      }
+      try { if (typeof window.setConfirmPreviewPart === 'function') window.setConfirmPreviewPart(target === 'all' ? 'front' : target); } catch (_) {}
+      try { if (typeof window.render === 'function') window.render(); } catch (_) {}
+      var snap = captureSnapshot();
+      if (snap && snap.svgText) return Object.assign({}, snap, { outputPart: target });
+    } catch (error) {
+      console.warn('KATAPATA v23 part snapshot failed', part, error);
+    } finally {
+      try {
+        if (previous.currentStage !== null && typeof currentStage !== 'undefined') currentStage = previous.currentStage;
+        if (previous.currentAdjustPart !== null && typeof currentAdjustPart !== 'undefined') currentAdjustPart = previous.currentAdjustPart;
+        if (previous.confirmPreviewPart !== null && typeof confirmPreviewPart !== 'undefined') confirmPreviewPart = previous.confirmPreviewPart;
+        if (lowerPatternState && previous.lowerViewMode) lowerPatternState.viewMode = previous.lowerViewMode;
+        try { if (typeof window.render === 'function') window.render(); } catch (_) {}
+      } catch (_) {}
+    }
+    return null;
+  }
+  function captureAnySnapshot(){
+    var order = ['front', 'back', 'sleeve', 'skirt', 'pants', 'all'];
+    for (var i = 0; i < order.length; i += 1) {
+      var snap = captureSnapshotForPart(order[i]);
+      if (snap && snap.svgText) return snap;
+    }
+    return captureSnapshot();
+  }
   function setSaveMessage(html, mode){
     try {
       if (typeof window.setSaveMessage === 'function') {
@@ -3526,6 +3571,7 @@ window.addEventListener("DOMContentLoaded", () => {
     style.id = 'katapataStripeApiFlowV23Style';
     style.textContent = `
       #katapataStripeApiFlowV23{display:grid;gap:8px;padding:11px 12px;border:1px solid #d9c5aa;border-radius:14px;background:#fffaf2;color:#352d24;box-shadow:0 8px 18px rgba(80,58,34,.045);}
+      #katapataStripeApiFlowV23.is-attention{border-color:#97cf98;background:#f2fbf0;box-shadow:0 12px 30px rgba(42,111,45,.12);}
       #katapataStripeApiFlowV23 h2{margin:0;font-size:13px;font-weight:950;line-height:1.25;}
       #katapataStripeApiFlowV23 p{margin:0;font-size:10.5px;line-height:1.55;font-weight:780;color:#5d5247;}
       #katapataStripeApiFlowV23 small{font-size:9px;line-height:1.45;color:#746a60;font-weight:760;}
@@ -3568,8 +3614,15 @@ window.addEventListener("DOMContentLoaded", () => {
     var verified = readJson(VERIFIED_KEY, null);
     return !!(pending && verified && verified.verified === true && pending.draftId === verified.draftId);
   }
+  function needsPaymentAttention(){
+    try {
+      var params = new URLSearchParams(location.search || '');
+      if (params.get('katapata_checkout') === 'success') return true;
+    } catch (_) {}
+    return canSave();
+  }
   function boxHtml(){
-    return '<section id="katapataStripeApiFlowV23">' +
+    return '<section id="katapataStripeApiFlowV23" class="' + (needsPaymentAttention() ? 'is-attention' : '') + '">' +
       '<h2>' + esc(t('支払い完了後のデータ保存', 'After payment')) + '</h2>' +
       '<p>' + esc(t('Stripeで支払い後、KATAPATAへ戻るとVercel APIで決済確認し、購入済みデータを保存できるようになります。', 'After Stripe payment, KATAPATA verifies the session with the Vercel API and enables saving purchased data.')) + '</p>' +
       statusHtml() +
@@ -3588,11 +3641,21 @@ window.addEventListener("DOMContentLoaded", () => {
     var outputRoot = document.getElementById('katapataOutputPageV22');
     var box = document.getElementById('katapataStripeApiFlowV23');
     if (!box) {
-      if (outputRoot && outputRoot.parentNode === side) outputRoot.insertAdjacentHTML('afterend', boxHtml());
+      if (outputRoot && outputRoot.parentNode === side && needsPaymentAttention()) outputRoot.insertAdjacentHTML('beforebegin', boxHtml());
+      else if (outputRoot && outputRoot.parentNode === side) outputRoot.insertAdjacentHTML('afterend', boxHtml());
       else side.insertAdjacentHTML('afterbegin', boxHtml());
     } else {
       box.outerHTML = boxHtml();
     }
+  }
+  function focusPaymentBox(){
+    try {
+      renderBox();
+      var box = document.getElementById('katapataStripeApiFlowV23');
+      if (!box) return;
+      box.scrollIntoView({ behavior:'smooth', block:'start' });
+      try { box.setAttribute('tabindex', '-1'); box.focus({ preventScroll:true }); } catch (_) {}
+    } catch (_) {}
   }
   function setStatus(title, body, mode, fileName){
     currentStatus = { title:title, body:body || '', mode:mode || 'ok', fileName:fileName || '' };
@@ -3660,8 +3723,10 @@ window.addEventListener("DOMContentLoaded", () => {
       setStatus(t('購入前データが見つかりません', 'Pre-purchase data not found'), t('同じブラウザで購入開始した場合のみ、購入済みデータを保存できます。', 'Purchased data can be saved only in the same browser used to start checkout.'), 'bad');
       return;
     }
+    forceOutputStage();
     restorePending(pending);
-    setStatus(t('購入時の確定データを復元しました', 'Pre-purchase data restored'), t('このまま決済確認を行います。', 'Verifying payment now.'), 'warn');
+      setStatus(t('購入時の確定データを復元しました', 'Pre-purchase data restored'), t('このまま決済確認を行います。', 'Verifying payment now.'), 'warn');
+      setTimeout(focusPaymentBox, 120);
     try {
       var res = await fetch(apiUrl('/api/verify-checkout-session'), {
         method: 'POST',
@@ -3673,6 +3738,7 @@ window.addEventListener("DOMContentLoaded", () => {
       writeJson(VERIFIED_KEY, Object.assign({}, data, { draftId: draftId, sessionId: sessionId, verifiedAt: now() }));
       restorePending(pending);
       setStatus(t('支払いを確認できました', 'Payment verified'), t('購入済みデータを保存できます。', 'You can save the purchased data.'), 'ok');
+      setTimeout(focusPaymentBox, 120);
       try { history.replaceState(null, '', location.origin + location.pathname + location.hash); } catch (_) {}
     } catch (error) {
       console.error('KATAPATA v23 verify checkout failed', error);
@@ -3691,22 +3757,30 @@ window.addEventListener("DOMContentLoaded", () => {
     var snap = null;
     try {
       restored = applyState(pending.state);
-      snap = captureSnapshot();
+      snap = captureAnySnapshot();
     } finally {
       if (restored && currentState) applyState(currentState);
     }
-    if (!snap || !snap.svgText) {
-      setStatus(t('購入済みデータを作成できませんでした', 'Could not create purchased data'), t('出力画面で型紙が表示されている状態にして、もう一度保存してください。', 'Show the draft on the output screen, then try saving again.'), 'bad');
-      return null;
+    if (snap && snap.svgText) {
+      snap = Object.assign({}, snap, {
+        productKey: PRODUCT_KEY,
+        productName: t('KATAPATA 確定データ', 'KATAPATA confirmed data'),
+        source: 'katapata-stripe-api-flow-v23',
+        purchasedAt: verified.verifiedAt || now(),
+        stripeSessionId: verified.sessionId || '',
+        purchaseToken: verified.purchaseToken || ''
+      });
     }
-    snap = Object.assign({}, snap, {
+    var purchaseIntent = {
       productKey: PRODUCT_KEY,
       productName: t('KATAPATA 確定データ', 'KATAPATA confirmed data'),
-      source: 'katapata-stripe-api-flow-v23',
-      purchasedAt: verified.verifiedAt || now(),
-      stripeSessionId: verified.sessionId || '',
-      purchaseToken: verified.purchaseToken || ''
-    });
+      productTarget: t('確定データ・フルセット', 'Confirmed data full set'),
+      kind: PRODUCT_KEY,
+      capturedAt: pending.capturedAt || now(),
+      signature: pending.signature || '',
+      outputCapable: true,
+      paid: true
+    };
     return {
       version: 23,
       savedBy: 'katapata-stripe-api-flow-v23',
@@ -3717,6 +3791,7 @@ window.addEventListener("DOMContentLoaded", () => {
       productKey: PRODUCT_KEY,
       productName: t('KATAPATA 確定データ', 'KATAPATA confirmed data'),
       price: '1000',
+      purchaseIntent: purchaseIntent,
       purchaseInfo: {
         mode: 'stripe-checkout-session-verified',
         draftId: pending.draftId,
@@ -3747,15 +3822,25 @@ window.addEventListener("DOMContentLoaded", () => {
     var data = buildPurchasedData();
     if (!data) return;
     var fileName = downloadData(data);
-    try {
-      if (typeof window.katapataHandleImportedOutputCapableData === 'function') {
-        window.katapataHandleImportedOutputCapableData(data);
+    var hasSnapshot = !!(data && data.paidSnapshot && data.paidSnapshot.svgText);
+    if (hasSnapshot) {
+      try {
+        if (typeof window.katapataHandleImportedOutputCapableData === 'function') {
+          window.katapataHandleImportedOutputCapableData(data);
+        }
+      } catch (error) {
+        console.warn('KATAPATA v23 activate purchased data failed', error);
       }
-    } catch (error) {
-      console.warn('KATAPATA v23 activate purchased data failed', error);
     }
-    setStatus(t('保存処理を開始しました', 'Download started'), t('ブラウザのダウンロードフォルダを確認してください。', 'Check your browser downloads folder.'), 'ok', fileName);
-    setSaveMessage(t('<strong>購入済みデータの保存処理を開始しました</strong><small>ダウンロードフォルダを確認してください。</small>', '<strong>Purchased data download started</strong><small>Check your downloads folder.</small>'), 'ok');
+    setStatus(
+      t('購入済みデータを保存しました', 'Purchased data saved'),
+      hasSnapshot
+        ? t('保存した .katapata を読み込むと、すぐにPDFを出力できます。', 'Load the saved .katapata file to export PDFs.')
+        : t('保存した .katapata を読み込むと、型紙を再構築してPDFを出力できます。', 'Load the saved .katapata file to rebuild the draft and export PDFs.'),
+      'ok',
+      fileName
+    );
+    setSaveMessage(t('<strong>購入済みデータを保存しました</strong><small>ダウンロードフォルダを確認してください。</small>', '<strong>Purchased data saved</strong><small>Check your downloads folder.</small>'), 'ok');
   }
   function clearState(){
     removeJson(PENDING_KEY);
@@ -3782,6 +3867,7 @@ window.addEventListener("DOMContentLoaded", () => {
         var draftId = params.get('draft_id') || '';
         var pending = readJson(PENDING_KEY, null);
         if (pending && pending.draftId === draftId) restorePending(pending);
+        setTimeout(focusPaymentBox, 260);
       }
     } catch (_) {}
   }, 180);
@@ -3790,6 +3876,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   window.katapataV23StartStripeCheckout = startCheckout;
   window.katapataV23VerifyCheckoutFromUrl = verifyFromUrl;
+  window.katapataV23CaptureAnySnapshot = captureAnySnapshot;
 })();
 </script>
 <script id="katapata-v31-measure-two-torsos">
