@@ -923,6 +923,12 @@ window.addEventListener("DOMContentLoaded", () => {
 
   window.katapataOpenPurchasedSnapshotPrint = openSnapshotPrint;
   window.katapataCapturePaidPrintSnapshot = captureCurrentPrintSnapshot;
+  window.katapataWritePurchasedSnapshotPrint = function katapataWritePurchasedSnapshotPrint(snap, mode){
+    if (!snap || !snap.svgText) return false;
+    if (mode === 'tiled') writeTiledSnapshotPrint(snap);
+    else writeNormalSnapshotPrint(snap);
+    return true;
+  };
   window.katapataPaidSnapshotSetPatchInstalled = true;
 })();
 </script>
@@ -2700,7 +2706,13 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
   function canBuildSnapshotFromPurchasedState(data){
-    return !!(data && typeof data === 'object' && data.purchaseIntent && data.state);
+    return !!(data && typeof data === 'object' && data.state && (
+      data.purchaseIntent ||
+      data.katapataPurchasedData === true ||
+      data.outputCapable === true ||
+      data.purchaseStatus === 'paid' ||
+      (data.purchaseInfo && data.purchaseInfo.mode)
+    ));
   }
   function captureCurrentSnapshot(){
     try {
@@ -2805,6 +2817,13 @@ window.addEventListener("DOMContentLoaded", () => {
       if (!rebuildActiveSnapshot()) return blockPdf();
     }
     storeActiveSnapshot();
+    if (typeof window.katapataWritePurchasedSnapshotPrint === 'function') {
+      try {
+        if (window.katapataWritePurchasedSnapshotPrint(active.snapshot, mode === 'tiled' ? 'tiled' : 'normal')) return true;
+      } catch (error) {
+        console.error('KATAPATA v21 direct purchased print failed', error);
+      }
+    }
     try {
       window.katapataPendingPaymentKind = PRODUCT_KEY;
       window.katapataSelectedCheckoutProductKey = PRODUCT_KEY;
@@ -3356,8 +3375,8 @@ window.addEventListener("DOMContentLoaded", () => {
     const tab = currentOutputTab();
     return `
       <div class="katapataV22Tabs" role="tablist">
-        <button type="button" data-v22-tab="pdf" data-active="${tab === 'pdf' ? '1' : '0'}">${esc(t('PDF出力', 'PDF output'))}</button>
         <button type="button" data-v22-tab="save" data-active="${tab === 'save' ? '1' : '0'}">${esc(t('データ保存', 'Data save'))}</button>
+        <button type="button" data-v22-tab="pdf" data-active="${tab === 'pdf' ? '1' : '0'}">${esc(t('PDF出力', 'PDF output'))}</button>
       </div>
       <div class="katapataV22Pane" data-v22-pane="pdf"${tab === 'pdf' ? '' : ' hidden'}>
         <section class="katapataOutputBlock" data-v22-block="owned">
@@ -3411,6 +3430,9 @@ window.addEventListener("DOMContentLoaded", () => {
     }
     root.innerHTML = html();
     hideLegacyOutputBlocks(side, root);
+    try {
+      if (typeof window.katapataV23RenderIntoSaveSlot === 'function') window.katapataV23RenderIntoSaveSlot();
+    } catch (_) {}
   }
   window.katapataV22RenderOutputPage = render;
   function hideLegacyOutputBlocks(side, root){
@@ -3668,7 +3690,14 @@ window.addEventListener("DOMContentLoaded", () => {
     var pending = readJson(PENDING_KEY, null);
     var verified = readJson(VERIFIED_KEY, null);
     var status = currentStatus;
-    if (!status && verified && verified.verified && pending && pending.draftId === verified.draftId) {
+    if (!status && verified && verified.saved && pending && pending.draftId === verified.draftId) {
+      status = {
+        mode: 'ok',
+        title: t('購入済みデータは保存済みです', 'Purchased data already saved'),
+        body: verified.savedFileName ? t('保存したファイルをPDF出力タブで読み込んでください。', 'Load the saved file on the PDF output tab.') : t('PDF出力タブで購入データを読み込んでください。', 'Load purchased data on the PDF output tab.'),
+        fileName: verified.savedFileName || ''
+      };
+    } else if (!status && verified && verified.verified && pending && pending.draftId === verified.draftId) {
       status = {
         mode: 'ok',
         title: t('支払いを確認できました', 'Payment verified'),
@@ -3688,7 +3717,7 @@ window.addEventListener("DOMContentLoaded", () => {
   function canSave(){
     var pending = readJson(PENDING_KEY, null);
     var verified = readJson(VERIFIED_KEY, null);
-    return !!(pending && verified && verified.verified === true && pending.draftId === verified.draftId);
+    return !!(pending && verified && verified.verified === true && !verified.saved && pending.draftId === verified.draftId);
   }
   function needsPaymentAttention(){
     try {
@@ -3719,7 +3748,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!isOutputStage()) return;
     try {
       if (isCheckoutReturn() || (!window.katapataV22OutputTab && needsPaymentAttention())) window.katapataV22OutputTab = 'save';
-      if (typeof window.katapataV22RenderOutputPage === 'function') window.katapataV22RenderOutputPage();
+      if (typeof window.katapataV22RenderOutputPage === 'function' && !document.getElementById('katapataV22SaveFlowSlot')) window.katapataV22RenderOutputPage();
     } catch (_) {}
     ensureStyle();
     var side = document.getElementById('sideContent') || document.querySelector('.side') || document.body;
@@ -3735,6 +3764,14 @@ window.addEventListener("DOMContentLoaded", () => {
     } else {
       box.outerHTML = boxHtml();
     }
+  }
+  function renderIntoSaveSlot(){
+    if (!isOutputStage()) return false;
+    ensureStyle();
+    var slot = document.getElementById('katapataV22SaveFlowSlot');
+    if (!slot) return false;
+    slot.innerHTML = boxHtml();
+    return true;
   }
   function focusPaymentBox(){
     try {
@@ -3930,6 +3967,15 @@ window.addEventListener("DOMContentLoaded", () => {
       fileName
     );
     setSaveMessage(t('<strong>購入済みデータを保存しました</strong><small>ダウンロードフォルダを確認してください。</small>', '<strong>Purchased data saved</strong><small>Check your downloads folder.</small>'), 'ok');
+    try {
+      var verified = readJson(VERIFIED_KEY, null) || {};
+      verified.saved = true;
+      verified.savedAt = now();
+      verified.savedFileName = fileName;
+      writeJson(VERIFIED_KEY, verified);
+      window.katapataV22OutputTab = 'pdf';
+      if (typeof window.katapataV22RenderOutputPage === 'function') window.katapataV22RenderOutputPage();
+    } catch (_) {}
   }
   function clearState(){
     removeJson(PENDING_KEY);
@@ -3967,6 +4013,7 @@ window.addEventListener("DOMContentLoaded", () => {
   window.katapataV23VerifyCheckoutFromUrl = verifyFromUrl;
   window.katapataV23CaptureAnySnapshot = captureAnySnapshot;
   window.katapataV23RenderBox = renderBox;
+  window.katapataV23RenderIntoSaveSlot = renderIntoSaveSlot;
 })();
 </script>
 <script id="katapata-v31-measure-two-torsos">
