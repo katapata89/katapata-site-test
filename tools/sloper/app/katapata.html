@@ -3302,6 +3302,7 @@ window.addEventListener("DOMContentLoaded", () => {
           <button type="button" class="sub" data-v22-pdf="tiled">${esc(t('A4分割PDF', 'A4 tiled PDF'))}</button>
         </div>
       </section>
+      ${typeof window.katapataV44CheckoutInlineHtml === 'function' ? window.katapataV44CheckoutInlineHtml() : ''}
       <section class="katapataOutputBlock" data-v22-block="buy">
         <h2>${esc(t('確定データ購入', 'Purchase confirmed data'))}</h2>
         <div class="katapataV22PriceRow">
@@ -4115,6 +4116,251 @@ window.KATAPATA_PATCH_VERSION = "fullset_1000_stripe_v25_no_template_injection";
   window.katapataV41VerifyCheckoutFromUrl = verifyCheckoutFromUrl;
   window.katapataV41SavePurchasedData = savePurchased;
   window.katapataV41RenderCheckoutBox = renderBox;
+})();
+</script>
+
+<script id="katapata-v44-inline-verified-save-box">
+(function katapataInstallInlineVerifiedSaveBoxV44(){
+  'use strict';
+  if (window.katapataInlineVerifiedSaveBoxV44Installed) return;
+  window.katapataInlineVerifiedSaveBoxV44Installed = true;
+
+  var PENDING_KEY = 'katapata_fullset_pending_checkout_v41';
+  var VERIFIED_KEY = 'katapata_fullset_verified_checkout_v41';
+  var RETURN_KEY = 'katapata_fullset_checkout_return_v44';
+
+  function isEnglish(){
+    try { return document.body && document.body.getAttribute('data-lang') === 'en'; } catch (_) { return false; }
+  }
+  function t(ja, en){ return isEnglish() ? (en || ja) : ja; }
+  function esc(value){
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+    });
+  }
+  function readJson(key, fallback){
+    try { return JSON.parse(localStorage.getItem(key) || '') || fallback; } catch (_) { return fallback; }
+  }
+  function writeJson(key, value){
+    try { localStorage.setItem(key, JSON.stringify(value || {})); } catch (_) {}
+  }
+  function removeJson(key){
+    try { localStorage.removeItem(key); } catch (_) {}
+  }
+  function apiUrl(path){
+    try {
+      var base = window.KATAPATA_API_BASE || '';
+      if (!base) return path;
+      return String(base).replace(/\/$/, '') + path;
+    } catch (_) { return path; }
+  }
+  function now(){ return new Date().toISOString(); }
+  function ensureStyle(){
+    if (document.getElementById('katapataV44InlineVerifiedStyle')) return;
+    var style = document.createElement('style');
+    style.id = 'katapataV44InlineVerifiedStyle';
+    style.textContent = `
+      /* v44では出力ページ本体に決済確認パネルを組み込む。旧挿入パネルは重複防止で隠す。 */
+      #katapataV41CheckoutBox{display:none !important;}
+      #katapataV44CheckoutBox{display:grid;gap:8px;padding:11px 12px;border:1px solid #d9c5aa;border-radius:16px;background:linear-gradient(180deg,#fffdf8 0%,#f5efe5 100%);box-shadow:0 8px 20px rgba(80,58,34,.05);color:#3d3428;}
+      #katapataV44CheckoutBox h2{margin:0;font-size:13px;font-weight:950;line-height:1.25;}
+      #katapataV44CheckoutBox p{margin:0;font-size:10.5px;line-height:1.55;font-weight:780;color:#5d5247;}
+      #katapataV44CheckoutBox small{font-size:9px;line-height:1.45;color:#746a60;font-weight:760;}
+      .katapataV44Status{display:grid;gap:3px;padding:8px 9px;border-radius:12px;background:#fff;border:1px solid #e5d9c8;font-size:10px;line-height:1.45;}
+      .katapataV44Status strong{font-size:10.8px;font-weight:950;}
+      .katapataV44Status.ok{background:#edf8ed;border-color:#b7dbb7;color:#295d2d;}
+      .katapataV44Status.warn{background:#fff7e8;border-color:#edd19b;color:#7a4a18;}
+      .katapataV44Status.bad{background:#fff0ef;border-color:#efbab4;color:#8b2e23;}
+      .katapataV44Actions{display:grid;grid-template-columns:1fr auto;gap:7px;}
+      .katapataV44Actions button{min-height:34px;border-radius:13px;font-size:11px;font-weight:950;}
+      .katapataV44Actions button:disabled{opacity:.45;cursor:not-allowed;}
+      @media(max-width:560px){.katapataV44Actions{grid-template-columns:1fr}.katapataV44Actions button{width:100%;}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function pending(){ return readJson(PENDING_KEY, null); }
+  function verified(){ return readJson(VERIFIED_KEY, null); }
+  function returnInfo(){ return readJson(RETURN_KEY, null); }
+  function hasPending(){ var p = pending(); return !!(p && p.state && p.draftId); }
+  function canSave(){
+    var v = verified();
+    var p = pending();
+    return !!(v && v.verified === true && p && p.draftId && v.draftId === p.draftId);
+  }
+
+  function statusBlock(){
+    var v = verified();
+    var p = pending();
+    var r = returnInfo();
+    if (canSave()) {
+      return '<div class="katapataV44Status ok"><strong>' + esc(t('購入を確認できました', 'Payment verified')) + '</strong><span>' + esc(t('下のボタンから購入済みデータを保存できます。', 'Use the button below to save purchased data.')) + '</span></div>';
+    }
+    if (r && r.error) {
+      return '<div class="katapataV44Status bad"><strong>' + esc(t('購入確認に失敗しました', 'Payment verification failed')) + '</strong><span>' + esc(r.error) + '</span></div>';
+    }
+    if (r && r.checking) {
+      return '<div class="katapataV44Status warn"><strong>' + esc(t('購入確認中です', 'Verifying payment')) + '</strong><span>' + esc(t('Stripeの支払い情報を確認しています。少し待っても変わらない場合は「決済確認を再試行」を押してください。', 'Checking the Stripe payment. If this does not change, click retry.')) + '</span></div>';
+    }
+    if (hasPending()) {
+      return '<div class="katapataV44Status warn"><strong>' + esc(t('購入前データを保持しています', 'Pre-purchase data is saved')) + '</strong><span>' + esc(t('支払い後に戻ると、ここで購入確認を行います。', 'After returning from payment, verification will appear here.')) + '</span></div>';
+    }
+    return '<div class="katapataV44Status warn"><strong>' + esc(t('購入確認はまだありません', 'No verified purchase yet')) + '</strong><span>' + esc(t('「この確定データを購入する」からStripe決済へ進んでください。', 'Use “Purchase this confirmed data” to continue to Stripe.')) + '</span></div>';
+  }
+
+  window.katapataV44CheckoutInlineHtml = function katapataV44CheckoutInlineHtml(){
+    ensureStyle();
+    var saveEnabled = canSave();
+    var retryEnabled = !!(returnInfo() && returnInfo().sessionId && returnInfo().draftId);
+    return '<section id="katapataV44CheckoutBox" class="katapataOutputBlock" data-v44-checkout-box="1">' +
+      '<h2>' + esc(t('Stripe決済確認', 'Stripe payment verification')) + '</h2>' +
+      '<p>' + esc(t('支払い後にKATAPATAへ戻ると、サーバーで決済確認してから購入済みデータを保存できます。', 'After returning to KATAPATA, the server verifies payment before saving purchased data.')) + '</p>' +
+      statusBlock() +
+      '<div class="katapataV44Actions">' +
+        '<button type="button" data-v44-save-paid="1"' + (saveEnabled ? '' : ' disabled') + '>' + esc(t('購入済みデータを保存する', 'Save purchased data')) + '</button>' +
+        '<button type="button" class="sub" data-v44-retry-verify="1"' + (retryEnabled ? '' : ' disabled') + '>' + esc(t('決済確認を再試行', 'Retry verification')) + '</button>' +
+      '</div>' +
+      '<small>' + esc(saveEnabled ? t('購入確認済みです。このボタンから購入済み .katapata を保存できます。', 'Payment is verified. Save the purchased .katapata file with this button.') : t('このパネルは出力画面に直接組み込んでいるため、再描画されても消えません。', 'This panel is built into the output screen so it remains after redraws.')) + '</small>' +
+    '</section>';
+  };
+
+  function rerenderOutput(){
+    ensureStyle();
+    try { if (typeof window.render === 'function') window.render(); } catch (_) {}
+    try {
+      var root = document.getElementById('katapataOutputPageV22');
+      if (root && !document.getElementById('katapataV44CheckoutBox')) {
+        var buy = root.querySelector('[data-v22-block="buy"]');
+        if (buy) buy.insertAdjacentHTML('beforebegin', window.katapataV44CheckoutInlineHtml());
+        else root.insertAdjacentHTML('afterbegin', window.katapataV44CheckoutInlineHtml());
+      } else if (root) {
+        var box = document.getElementById('katapataV44CheckoutBox');
+        if (box) box.outerHTML = window.katapataV44CheckoutInlineHtml();
+      }
+    } catch (_) {}
+  }
+
+  function forceOutputStage(){
+    try {
+      var btn = document.querySelector('.appStagebar .stage[data-stage="output"], .stagebar .stage[data-stage="output"], .stage[data-stage="output"]');
+      if (btn && typeof btn.click === 'function') btn.click();
+    } catch (_) {}
+    try {
+      var main = document.querySelector('.main');
+      if (main) main.setAttribute('data-stage', 'output');
+    } catch (_) {}
+    setTimeout(rerenderOutput, 30);
+    setTimeout(rerenderOutput, 160);
+    setTimeout(rerenderOutput, 500);
+  }
+
+  function restorePendingState(){
+    var p = pending();
+    if (!p || !p.state) return false;
+    try {
+      if (typeof window.applyStateObject === 'function') {
+        window.applyStateObject(p.state);
+        try { if (typeof window.render === 'function') window.render(); } catch (_) {}
+        return true;
+      }
+    } catch (error) { console.warn('KATAPATA v44 restore failed', error); }
+    return false;
+  }
+
+  async function verifyFromStoredReturn(){
+    var r = returnInfo();
+    if (!r || !r.sessionId || !r.draftId) return false;
+    var p = pending();
+    if (!p || p.draftId !== r.draftId) {
+      r.error = t('購入前データが見つかりません。同じブラウザで購入を開始した場合のみ保存できます。', 'Pre-purchase data was not found. You can save only in the same browser used to start checkout.');
+      r.checking = false;
+      writeJson(RETURN_KEY, r);
+      rerenderOutput();
+      return false;
+    }
+    r.checking = true;
+    r.error = '';
+    writeJson(RETURN_KEY, r);
+    restorePendingState();
+    forceOutputStage();
+    try {
+      var res = await fetch(apiUrl('/api/verify-checkout-session'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: r.sessionId, draftId: r.draftId })
+      });
+      var data = await res.json().catch(function(){ return {}; });
+      if (!res.ok || !data.verified) throw new Error(data.error || ('HTTP ' + res.status));
+      writeJson(VERIFIED_KEY, Object.assign({}, data, { draftId: r.draftId, sessionId: r.sessionId, verifiedAt: now() }));
+      r.checking = false;
+      r.error = '';
+      r.verifiedAt = now();
+      writeJson(RETURN_KEY, r);
+      restorePendingState();
+      forceOutputStage();
+      rerenderOutput();
+      return true;
+    } catch (error) {
+      console.error('KATAPATA v44 verify failed', error);
+      r.checking = false;
+      r.error = String(error && error.message ? error.message : error);
+      writeJson(RETURN_KEY, r);
+      rerenderOutput();
+      return false;
+    }
+  }
+
+  function captureReturnParams(){
+    try {
+      var params = new URLSearchParams(location.search || '');
+      if (params.get('katapata_checkout') !== 'success') return false;
+      var sessionId = params.get('session_id') || '';
+      var draftId = params.get('draft_id') || '';
+      if (!sessionId || !draftId) return false;
+      writeJson(RETURN_KEY, { sessionId: sessionId, draftId: draftId, returnedAt: now(), checking: true });
+      return true;
+    } catch (_) { return false; }
+  }
+
+  document.addEventListener('click', function(event){
+    var target = event.target && event.target.closest ? event.target.closest('[data-v44-save-paid], [data-v44-retry-verify]') : null;
+    if (!target) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    if (target.hasAttribute('data-v44-save-paid')) {
+      if (typeof window.katapataV41SavePurchasedData === 'function') window.katapataV41SavePurchasedData();
+      setTimeout(rerenderOutput, 160);
+      setTimeout(rerenderOutput, 600);
+    } else if (target.hasAttribute('data-v44-retry-verify')) {
+      verifyFromStoredReturn();
+    }
+  }, true);
+
+  function boot(){
+    ensureStyle();
+    var gotReturn = captureReturnParams();
+    if (gotReturn) {
+      restorePendingState();
+      forceOutputStage();
+      setTimeout(verifyFromStoredReturn, 250);
+    }
+    setTimeout(rerenderOutput, 300);
+    setTimeout(rerenderOutput, 900);
+    setTimeout(rerenderOutput, 1800);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true });
+  else boot();
+  ['click','pointerup','input','change'].forEach(function(type){
+    document.addEventListener(type, function(){ setTimeout(rerenderOutput, 180); }, true);
+  });
+  setInterval(function(){
+    try {
+      var main = document.querySelector('.main');
+      if (main && String(main.getAttribute('data-stage') || '').toLowerCase() === 'output') rerenderOutput();
+    } catch (_) {}
+  }, 1600);
 })();
 </script>
 </body></html>
