@@ -3806,15 +3806,35 @@ window.KATAPATA_PATCH_VERSION = "fullset_1000_stripe_v25_no_template_injection";
 
   var currentStatus = null;
   function statusHtml(){
-    if (!currentStatus) return '';
-    var cls = currentStatus.mode || '';
-    var file = currentStatus.fileName ? '<code>' + esc(currentStatus.fileName) + '</code>' : '';
-    return '<div class="katapataV41Status ' + esc(cls) + '"><strong>' + esc(currentStatus.title || '') + '</strong><span>' + esc(currentStatus.body || '') + '</span>' + file + '</div>';
+    var st = currentStatus;
+    if (!st) {
+      try {
+        var verified = readJson(VERIFIED_KEY, null);
+        if (verified && verified.verified === true) {
+          st = {
+            title: t('購入を確認済みです', 'Payment verified'),
+            body: t('下のボタンから購入済みデータを保存できます。', 'Use the button below to save purchased data.'),
+            mode: 'ok'
+          };
+        }
+      } catch (_) {}
+    }
+    if (!st) return '';
+    var cls = st.mode || '';
+    var file = st.fileName ? '<code>' + esc(st.fileName) + '</code>' : '';
+    return '<div class="katapataV41Status ' + esc(cls) + '"><strong>' + esc(st.title || '') + '</strong><span>' + esc(st.body || '') + '</span>' + file + '</div>';
+  }
+  function boxStateKey(){
+    var verified = readJson(VERIFIED_KEY, null);
+    var canSave = !!(verified && verified.verified === true);
+    var st = currentStatus || {};
+    return [canSave ? '1' : '0', st.title || '', st.body || '', st.mode || '', st.fileName || ''].join('|');
   }
   function boxHtml(){
     var verified = readJson(VERIFIED_KEY, null);
     var canSave = !!(verified && verified.verified === true);
-    return '<section id="katapataV41CheckoutBox">' +
+    var key = boxStateKey();
+    return '<section id="katapataV41CheckoutBox" data-v41-state="' + esc(key) + '">' +
       '<h2>' + esc(t('Stripe決済確認', 'Stripe payment verification')) + '</h2>' +
       '<p>' + esc(t('支払い後にKATAPATAへ戻ったら、サーバーで決済確認してから購入済みデータを保存します。', 'After payment, KATAPATA verifies the session on the server before saving purchased data.')) + '</p>' +
       statusHtml() +
@@ -3822,23 +3842,75 @@ window.KATAPATA_PATCH_VERSION = "fullset_1000_stripe_v25_no_template_injection";
         '<button type="button" data-v41-save-paid="1"' + (canSave ? '' : ' disabled') + '>' + esc(t('購入済みデータを保存する', 'Save purchased data')) + '</button>' +
         '<button type="button" class="sub" data-v41-clear="1">' + esc(t('状態をクリア', 'Clear')) + '</button>' +
       '</div>' +
-      '<small>' + esc(t('※このボタンは、Stripeの支払い確認がOKになった後に有効になります。', 'This button becomes available after Stripe verification succeeds.')) + '</small>' +
+      '<small>' + esc(canSave ? t('購入確認済みです。このボタンから購入済み .katapata を保存できます。', 'Payment is verified. You can save the purchased .katapata file with this button.') : t('※このボタンは、Stripeの支払い確認がOKになった後に有効になります。', 'This button becomes available after Stripe verification succeeds.')) + '</small>' +
     '</section>';
   }
   function renderBox(){
     ensureStyle();
+    var html = boxHtml();
+    var nextKey = boxStateKey();
+    var outputRoot = document.getElementById('katapataOutputPageV22');
     var side = document.getElementById('sideContent') || document.querySelector('.side') || document.body;
-    if (!side) return;
     var box = document.getElementById('katapataV41CheckoutBox');
+
+    if (outputRoot) {
+      if (box && !outputRoot.contains(box)) {
+        try { box.remove(); } catch (_) {}
+        box = null;
+      }
+      if (!box) {
+        var buyBlock = outputRoot.querySelector('[data-v22-block="buy"]');
+        if (buyBlock) buyBlock.insertAdjacentHTML('beforebegin', html);
+        else outputRoot.insertAdjacentHTML('afterbegin', html);
+      } else if (box.getAttribute('data-v41-state') !== nextKey) {
+        box.outerHTML = html;
+      }
+      return;
+    }
+
+    if (!side) return;
     if (!box) {
-      side.insertAdjacentHTML('afterbegin', boxHtml());
-    } else {
-      box.outerHTML = boxHtml();
+      side.insertAdjacentHTML('afterbegin', html);
+    } else if (box.getAttribute('data-v41-state') !== nextKey) {
+      box.outerHTML = html;
     }
   }
   function setStatus(title, body, mode, fileName){
     currentStatus = { title:title, body:body || '', mode:mode || 'ok', fileName:fileName || '' };
     renderBox();
+    scheduleRenderBox(80);
+    scheduleRenderBox(300);
+    scheduleRenderBox(900);
+  }
+
+  function isCheckoutReturn(){
+    try {
+      var params = new URLSearchParams(location.search || '');
+      return params.get('katapata_checkout') === 'success';
+    } catch (_) { return false; }
+  }
+  function isOutputStage(){
+    try {
+      var main = document.querySelector('.main');
+      return main && String(main.getAttribute('data-stage') || '').toLowerCase() === 'output';
+    } catch (_) { return false; }
+  }
+  function hasVerifiedCheckout(){
+    try {
+      var verified = readJson(VERIFIED_KEY, null);
+      return !!(verified && verified.verified === true);
+    } catch (_) { return false; }
+  }
+  var renderTimer = 0;
+  function shouldRenderCheckoutBox(){
+    return isCheckoutReturn() || isOutputStage() || hasVerifiedCheckout() || !!document.getElementById('katapataOutputPageV22');
+  }
+  function scheduleRenderBox(delay){
+    if (renderTimer) clearTimeout(renderTimer);
+    renderTimer = setTimeout(function(){
+      renderTimer = 0;
+      if (shouldRenderCheckoutBox()) renderBox();
+    }, delay == null ? 160 : delay);
   }
 
   function createPending(){
@@ -4029,8 +4101,20 @@ window.KATAPATA_PATCH_VERSION = "fullset_1000_stripe_v25_no_template_injection";
     } catch (_) {}
   }, 180);
   setTimeout(verifyCheckoutFromUrl, 500);
+  setTimeout(scheduleRenderBox, 700);
+  setTimeout(scheduleRenderBox, 1400);
+  setTimeout(scheduleRenderBox, 2600);
+  try {
+    var observer = new MutationObserver(function(){ scheduleRenderBox(180); });
+    observer.observe(document.body || document.documentElement, { childList:true, subtree:true });
+  } catch (_) {}
+  ['click','pointerup','input','change'].forEach(function(type){
+    document.addEventListener(type, function(){ scheduleRenderBox(160); }, true);
+  });
   window.katapataV41StartStripeCheckout = createCheckout;
   window.katapataV41VerifyCheckoutFromUrl = verifyCheckoutFromUrl;
+  window.katapataV41SavePurchasedData = savePurchased;
+  window.katapataV41RenderCheckoutBox = renderBox;
 })();
 </script>
 </body></html>
