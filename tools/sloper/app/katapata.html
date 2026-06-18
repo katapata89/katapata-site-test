@@ -2790,12 +2790,19 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   function invalidateActive(reason){
     if (!active || applyingImportedState) return;
+    try {
+      const r = String(reason || '');
+      if (r === 'pdf-target-change' || r === 'render-refresh' || r === 'output-ui') return;
+    } catch (_) {}
     active.dirty = true;
     active.dirtyReason = reason || 'edited';
     refreshUi();
   }
   function hasActiveCleanData(){
     return !!(active && !active.dirty && ((active.snapshot && active.snapshot.svgText) || (active.data && canBuildSnapshotFromPurchasedState(active.data))));
+  }
+  function hasPurchasedStateData(){
+    return !!(active && active.data && canBuildSnapshotFromPurchasedState(active.data));
   }
   function blockPdf(){
     setStatus(text(
@@ -2812,7 +2819,11 @@ window.addEventListener("DOMContentLoaded", () => {
     writeJson(SNAPSHOT_KEY, map);
   }
   function openActiveSnapshot(mode){
-    if (!hasActiveCleanData()) return blockPdf();
+    if (!hasActiveCleanData() && !hasPurchasedStateData()) return blockPdf();
+    if (active && active.dirty && hasPurchasedStateData()) {
+      active.dirty = false;
+      active.dirtyReason = '';
+    }
     if (!active.snapshot || !active.snapshot.svgText) {
       if (!rebuildActiveSnapshot()) return blockPdf();
     }
@@ -3294,18 +3305,19 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   function setOutputPart(part){
     const next = normalizeOutputPart(part);
+    const renderPart = (next === 'front' || next === 'back') ? 'all' : next;
     try { window.katapataV22OutputPart = next; } catch (_) {}
     try {
       if (next === 'skirt' || next === 'pants') {
         if (lowerPatternState) lowerPatternState.viewMode = next;
         if (typeof confirmPreviewPart !== 'undefined') confirmPreviewPart = next;
       } else {
-        if (typeof confirmPreviewPart !== 'undefined') confirmPreviewPart = next;
-        if (typeof currentAdjustPart !== 'undefined') currentAdjustPart = next;
+        if (typeof confirmPreviewPart !== 'undefined') confirmPreviewPart = renderPart;
+        if (typeof currentAdjustPart !== 'undefined') currentAdjustPart = renderPart;
       }
     } catch (_) {}
     try {
-      if (typeof window.setConfirmPreviewPart === 'function') window.setConfirmPreviewPart(next);
+      if (typeof window.setConfirmPreviewPart === 'function') window.setConfirmPreviewPart(renderPart);
     } catch (_) {}
     try { if (typeof window.render === 'function') window.render(); } catch (_) {}
     refreshActiveSnapshotForPart();
@@ -3605,16 +3617,17 @@ window.addEventListener("DOMContentLoaded", () => {
       previous.confirmPreviewPart = typeof confirmPreviewPart !== 'undefined' ? confirmPreviewPart : null;
       previous.lowerViewMode = lowerPatternState && lowerPatternState.viewMode;
       var target = String(part || 'front');
+      var renderPart = (target === 'front' || target === 'back') ? 'all' : target;
       if (target === 'skirt' || target === 'pants') {
         if (lowerPatternState) lowerPatternState.viewMode = target;
         if (typeof confirmPreviewPart !== 'undefined') confirmPreviewPart = target;
         if (typeof currentStage !== 'undefined') currentStage = 'output';
       } else {
-        if (typeof confirmPreviewPart !== 'undefined') confirmPreviewPart = target === 'all' ? 'front' : target;
-        if (typeof currentAdjustPart !== 'undefined') currentAdjustPart = target === 'sleeve' ? 'sleeve' : (target === 'back' ? 'back' : 'front');
+        if (typeof confirmPreviewPart !== 'undefined') confirmPreviewPart = renderPart;
+        if (typeof currentAdjustPart !== 'undefined') currentAdjustPart = renderPart;
         if (typeof currentStage !== 'undefined') currentStage = 'confirm';
       }
-      try { if (typeof window.setConfirmPreviewPart === 'function') window.setConfirmPreviewPart(target === 'all' ? 'front' : target); } catch (_) {}
+      try { if (typeof window.setConfirmPreviewPart === 'function') window.setConfirmPreviewPart(renderPart); } catch (_) {}
       try { if (typeof window.render === 'function') window.render(); } catch (_) {}
       var snap = captureSnapshot();
       if (snap && snap.svgText) return Object.assign({}, snap, { outputPart: target });
@@ -3632,7 +3645,7 @@ window.addEventListener("DOMContentLoaded", () => {
     return null;
   }
   function captureAnySnapshot(){
-    var order = ['front', 'back', 'sleeve', 'skirt', 'pants', 'all'];
+    var order = ['all', 'sleeve', 'skirt', 'pants', 'front', 'back'];
     for (var i = 0; i < order.length; i += 1) {
       var snap = captureSnapshotForPart(order[i]);
       if (snap && snap.svgText) return snap;
