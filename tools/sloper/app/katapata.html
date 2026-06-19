@@ -4532,4 +4532,82 @@ window.addEventListener("DOMContentLoaded", () => {
   // Event-driven cleanup avoids output panel flicker.
 })();
 </script>
+<script id="katapata-output-v38-render-stabilizer">
+(function katapataInstallOutputV38RenderStabilizer(){
+  'use strict';
+  if (window.katapataOutputV38RenderStabilizerInstalled) return;
+  window.katapataOutputV38RenderStabilizerInstalled = true;
+
+  var scheduled = 0;
+
+  function stage(){
+    try {
+      var main = document.querySelector('.main');
+      return main ? String(main.getAttribute('data-stage') || '').toLowerCase() : '';
+    } catch (_) { return ''; }
+  }
+
+  function hideLegacyOutputPanels(){
+    if (stage() !== 'output') return;
+    try {
+      var root = document.getElementById('katapataOutputPageV22');
+      var side = document.getElementById('sideContent') || document.querySelector('.side');
+      if (!side) return;
+      Array.from(side.children || []).forEach(function(el){
+        if (!el || el === root || (root && el.contains(root)) || el.id === 'katapataStripeApiFlowV23') return;
+        var txt = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+        var legacy = /購入する対象|購入対象|出力対象|縮小サンプルPDF|印刷・出力|有料PDF|解除コード|支払い済みの方|Print\s*\/\s*Export|Purchase target|Output target|The current output target|Sample PDF|Paid:\s*print-ready PDF set|Print-ready PDF set/i.test(txt);
+        if (legacy) {
+          el.hidden = true;
+          el.style.display = 'none';
+        }
+      });
+    } catch (_) {}
+  }
+
+  function ensureOutputPage(){
+    scheduled = 0;
+    if (stage() !== 'output') return;
+    try {
+      if (typeof window.katapataV22RenderOutputPage === 'function') {
+        window.katapataV22RenderOutputPage();
+      }
+    } catch (_) {}
+    hideLegacyOutputPanels();
+  }
+
+  function schedule(delay){
+    if (scheduled) clearTimeout(scheduled);
+    scheduled = setTimeout(ensureOutputPage, delay || 60);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ schedule(80); }, { once:true });
+  } else {
+    schedule(80);
+  }
+
+  ['click','pointerup','change','keyup'].forEach(function(type){
+    document.addEventListener(type, function(){
+      setTimeout(ensureOutputPage, 0);
+      setTimeout(ensureOutputPage, 40);
+      setTimeout(ensureOutputPage, 140);
+    }, true);
+  });
+
+  try {
+    var main = document.querySelector('.main');
+    if (main && window.MutationObserver) {
+      new MutationObserver(function(){ schedule(20); }).observe(main, { attributes:true, attributeFilter:['data-stage'] });
+    }
+  } catch (_) {}
+
+  try {
+    var side = document.getElementById('sideContent') || document.querySelector('.side');
+    if (side && window.MutationObserver) {
+      new MutationObserver(function(){ schedule(30); }).observe(side, { childList:true });
+    }
+  } catch (_) {}
+})();
+</script>
 </body></html>
