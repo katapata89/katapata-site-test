@@ -4445,16 +4445,28 @@ window.addEventListener("DOMContentLoaded", () => {
       .main[data-stage="measure"] #sideContent > *:first-child{margin-top:0 !important;}
       .main:not([data-stage="output"]) #katapataOutputPageV22,
       .main:not([data-stage="output"]) #katapataStripeApiFlowV23,
-      .main:not([data-stage="output"]) #katapataV21FileOnlyPanel{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;height:0 !important;min-height:0 !important;margin:0 !important;padding:0 !important;border:0 !important;overflow:hidden !important;}
+      .main:not([data-stage="output"]) #katapataV21FileOnlyPanel,
+      .main:not([data-stage="output"]) #katapataV19OutputUnlockPanel,
+      .main:not([data-stage="output"]) .outputMainPanel,
+      .main:not([data-stage="output"]) .lowerOutputPanel{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;height:0 !important;min-height:0 !important;margin:0 !important;padding:0 !important;border:0 !important;overflow:hidden !important;}
       .measureFigureGrid #katapataOutputPageV22,
       .measureFigureGrid #katapataStripeApiFlowV23,
       .measureFigureGrid #katapataV21FileOnlyPanel,
+      .measureFigureGrid #katapataV19OutputUnlockPanel,
+      .measureFigureGrid .outputMainPanel,
+      .measureFigureGrid .lowerOutputPanel,
       .measureFigure #katapataOutputPageV22,
       .measureFigure #katapataStripeApiFlowV23,
       .measureFigure #katapataV21FileOnlyPanel,
+      .measureFigure #katapataV19OutputUnlockPanel,
+      .measureFigure .outputMainPanel,
+      .measureFigure .lowerOutputPanel,
       .torsoWrap #katapataOutputPageV22,
       .torsoWrap #katapataStripeApiFlowV23,
-      .torsoWrap #katapataV21FileOnlyPanel{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;}
+      .torsoWrap #katapataV21FileOnlyPanel,
+      .torsoWrap #katapataV19OutputUnlockPanel,
+      .torsoWrap .outputMainPanel,
+      .torsoWrap .lowerOutputPanel{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;}
       #katapataOutputPageV22 .katapataV22PartGrid{grid-template-columns:repeat(5,minmax(0,1fr)) !important;}
       #katapataOutputPageV22 .katapataV22PartGrid button{font-size:9.2px !important;line-height:1.15 !important;white-space:normal !important;}
       @media(max-width:560px){#katapataOutputPageV22 .katapataV22PartGrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
@@ -4465,22 +4477,15 @@ window.addEventListener("DOMContentLoaded", () => {
   function removeOutputUiOutsideOutput(){
     if (stage() === 'output') return;
     try {
-      var root = document.getElementById('katapataOutputPageV22');
-      if (root) root.remove();
-    } catch (_) {}
-    try {
-      var api = document.getElementById('katapataStripeApiFlowV23');
-      if (api) api.remove();
-    } catch (_) {}
-    try {
-      var old = document.getElementById('katapataV21FileOnlyPanel');
-      if (old) old.remove();
+      document.querySelectorAll('#katapataOutputPageV22, #katapataStripeApiFlowV23, #katapataV21FileOnlyPanel, #katapataV19OutputUnlockPanel, .outputMainPanel, .lowerOutputPanel').forEach(function(el){
+        el.remove();
+      });
     } catch (_) {}
   }
 
   function removeOutputUiFromTorso(){
     try {
-      document.querySelectorAll('.measureFigureGrid #katapataOutputPageV22, .measureFigureGrid #katapataStripeApiFlowV23, .measureFigureGrid #katapataV21FileOnlyPanel, .measureFigure #katapataOutputPageV22, .measureFigure #katapataStripeApiFlowV23, .measureFigure #katapataV21FileOnlyPanel, .torsoWrap #katapataOutputPageV22, .torsoWrap #katapataStripeApiFlowV23, .torsoWrap #katapataV21FileOnlyPanel').forEach(function(el){
+      document.querySelectorAll('.measureFigureGrid #katapataOutputPageV22, .measureFigureGrid #katapataStripeApiFlowV23, .measureFigureGrid #katapataV21FileOnlyPanel, .measureFigureGrid #katapataV19OutputUnlockPanel, .measureFigureGrid .outputMainPanel, .measureFigureGrid .lowerOutputPanel, .measureFigure #katapataOutputPageV22, .measureFigure #katapataStripeApiFlowV23, .measureFigure #katapataV21FileOnlyPanel, .measureFigure #katapataV19OutputUnlockPanel, .measureFigure .outputMainPanel, .measureFigure .lowerOutputPanel, .torsoWrap #katapataOutputPageV22, .torsoWrap #katapataStripeApiFlowV23, .torsoWrap #katapataV21FileOnlyPanel, .torsoWrap #katapataV19OutputUnlockPanel, .torsoWrap .outputMainPanel, .torsoWrap .lowerOutputPanel').forEach(function(el){
         el.remove();
       });
     } catch (_) {}
@@ -4567,8 +4572,23 @@ window.addEventListener("DOMContentLoaded", () => {
     } catch (_) {}
   }
 
+  function removeOutputPanelsOutsideOutput(){
+    if (stage() === 'output') return;
+    try {
+      document.querySelectorAll('#katapataOutputPageV22, #katapataStripeApiFlowV23, #katapataV21FileOnlyPanel, #katapataV19OutputUnlockPanel, .outputMainPanel, .lowerOutputPanel').forEach(function(el){
+        el.remove();
+      });
+    } catch (_) {}
+    try {
+      document.querySelectorAll('.measureFigureGrid #katapataOutputPageV22, .measureFigureGrid #katapataStripeApiFlowV23, .measureFigureGrid #katapataV21FileOnlyPanel, .measureFigureGrid #katapataV19OutputUnlockPanel, .measureFigureGrid .outputMainPanel, .measureFigureGrid .lowerOutputPanel, .measureFigure #katapataOutputPageV22, .measureFigure #katapataStripeApiFlowV23, .measureFigure #katapataV21FileOnlyPanel, .measureFigure #katapataV19OutputUnlockPanel, .measureFigure .outputMainPanel, .measureFigure .lowerOutputPanel, .torsoWrap #katapataOutputPageV22, .torsoWrap #katapataStripeApiFlowV23, .torsoWrap #katapataV21FileOnlyPanel, .torsoWrap #katapataV19OutputUnlockPanel, .torsoWrap .outputMainPanel, .torsoWrap .lowerOutputPanel').forEach(function(el){
+        el.remove();
+      });
+    } catch (_) {}
+  }
+
   function ensureOutputPage(){
     scheduled = 0;
+    removeOutputPanelsOutsideOutput();
     if (stage() !== 'output') return;
     try {
       if (typeof window.katapataV22RenderOutputPage === 'function') {
